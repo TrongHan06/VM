@@ -6,6 +6,7 @@ import com.example.vocabmaster.model.entity.VocabEntity;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Controller điều phối luồng làm bài tập trắc nghiệm / kiểm tra từ vựng.
@@ -23,6 +24,7 @@ public class PracticeController {
     private final List<VocabEntity> allVocabs;
     private int questionIndex = 0;
     private int correctAnswersCount = 0;
+    private boolean sessionFinished = false;
 
     /**
      * Khởi tạo PracticeController theo chủ đề hoặc bài kiểm tra tổng hợp.
@@ -41,12 +43,14 @@ public class PracticeController {
         this.learningProgressController = learningProgressController;
         this.dailyProgressManager = dailyProgressManager;
         this.customVocabs = customVocabs;
-        this.allVocabs = topicController.getAllVocabs();
+        this.allVocabs = topicController != null
+                ? topicController.getAllVocabs()
+                : (customVocabs != null ? new ArrayList<>(customVocabs) : new ArrayList<>());
 
         List<VocabEntity> rawVocabs;
         if (customVocabs != null && !customVocabs.isEmpty()) {
             rawVocabs = customVocabs;
-        } else if (topic != null) {
+        } else if (topic != null && topicController != null) {
             rawVocabs = topicController.getVocabsForTopic(topic.getTitle());
         } else {
             rawVocabs = allVocabs;
@@ -114,12 +118,20 @@ public class PracticeController {
 
         List<String> options = new ArrayList<>();
         String correctAnswer = current.getMeaning();
-        options.add(correctAnswer);
+        if (correctAnswer != null && !correctAnswer.trim().isEmpty()) {
+            options.add(correctAnswer);
+        }
 
         List<String> wrongAnswers = new ArrayList<>();
-        for (VocabEntity v : allVocabs) {
-            if (!v.getMeaning().equals(correctAnswer) && !wrongAnswers.contains(v.getMeaning())) {
-                wrongAnswers.add(v.getMeaning());
+        if (allVocabs != null) {
+            for (VocabEntity v : allVocabs) {
+                if (v == null) continue;
+                String meaning = v.getMeaning();
+                if (meaning != null && !meaning.trim().isEmpty()
+                        && !Objects.equals(meaning, correctAnswer)
+                        && !wrongAnswers.contains(meaning)) {
+                    wrongAnswers.add(meaning);
+                }
             }
         }
         Collections.shuffle(wrongAnswers);
@@ -137,7 +149,10 @@ public class PracticeController {
         VocabEntity current = getCurrentQuestion();
         if (current == null) return false;
 
-        boolean isCorrect = current.getMeaning().equals(selectedAnswer);
+        String correctAnswer = current.getMeaning();
+        boolean isCorrect = correctAnswer != null
+                && !correctAnswer.trim().isEmpty()
+                && Objects.equals(correctAnswer, selectedAnswer);
         if (isCorrect) {
             correctAnswersCount++;
         }
@@ -161,6 +176,10 @@ public class PracticeController {
      * Kết thúc phiên học: lưu bài quiz và kết quả làm bài vào Room DB, tăng bộ đếm bài làm.
      */
     public void finishSession() {
+        if (sessionFinished) {
+            return;
+        }
+        sessionFinished = true;
         if (topicController != null && getTotalQuestions() > 0) {
             int score = (correctAnswersCount * 100) / getTotalQuestions();
             Integer topicId = (topic != null && topic.getId() > 0) ? topic.getId() : null;

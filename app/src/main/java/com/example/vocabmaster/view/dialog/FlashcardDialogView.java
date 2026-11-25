@@ -59,11 +59,30 @@ public class FlashcardDialogView {
 
         Runnable updateCardData = () -> {
             VocabEntity vocab = flashcardController.getCurrentVocab();
-            if (tvWord != null) tvWord.setText(vocab.getWord());
-            if (tvPhonetic != null) tvPhonetic.setText(vocab.getPhonetic());
-            if (tvMeaning != null) tvMeaning.setText(vocab.getMeaning());
-            if (tvExample != null) tvExample.setText(vocab.getExample());
-            if (tvExampleMeaning != null) tvExampleMeaning.setText("(" + vocab.getExampleMeaning() + ")");
+            if (vocab == null) return;
+            if (tvWord != null) tvWord.setText(vocab.getWord() != null ? vocab.getWord() : "");
+            if (tvPhonetic != null) tvPhonetic.setText(vocab.getPhonetic() != null ? vocab.getPhonetic() : "");
+            if (tvMeaning != null) tvMeaning.setText(vocab.getMeaning() != null ? vocab.getMeaning() : "");
+            if (tvExample != null) {
+                String exEn = vocab.getExample();
+                if (exEn != null && !exEn.trim().isEmpty()) {
+                    tvExample.setVisibility(View.VISIBLE);
+                    tvExample.setText(exEn.trim());
+                } else {
+                    tvExample.setText("");
+                    tvExample.setVisibility(View.GONE);
+                }
+            }
+            if (tvExampleMeaning != null) {
+                String exMeaning = vocab.getExampleMeaning();
+                if (exMeaning != null && !exMeaning.trim().isEmpty()) {
+                    tvExampleMeaning.setVisibility(View.VISIBLE);
+                    tvExampleMeaning.setText("(" + exMeaning.trim() + ")");
+                } else {
+                    tvExampleMeaning.setText("");
+                    tvExampleMeaning.setVisibility(View.GONE);
+                }
+            }
 
             int total = flashcardController.getTotalCount();
             int currentPos = flashcardController.getCurrentIndex() + 1;
@@ -167,7 +186,7 @@ public class FlashcardDialogView {
         if (btnSpeakExample != null) {
             btnSpeakExample.setOnClickListener(v -> {
                 VocabEntity vocab = flashcardController.getCurrentVocab();
-                if (vocab != null && vocab.getExample() != null && speechListener != null) {
+                if (vocab != null && vocab.getExample() != null && !vocab.getExample().trim().isEmpty() && speechListener != null) {
                     speechListener.onSpeak(vocab.getExample());
                 }
             });

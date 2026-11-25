@@ -42,6 +42,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.ChipGroup;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -66,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private VocabAdapter wordListAdapter;
     private Runnable updateWordListRunnable;
 
+    private BottomSheetDialog activeSearchDialog;
     private VocabDialogView.SpeechPracticeDialogViewHolder speechDialogViewHolder;
 
     /**
@@ -246,7 +248,18 @@ public class MainActivity extends AppCompatActivity {
 
         topicController.getAllTopicsLiveData().observe(this, topicEntities -> {
             if (topicEntities != null && !topicEntities.isEmpty()) {
-                rvTopics.setAdapter(new TopicAdapter(topicEntities, this::showTopicDetailScreen));
+                TopicAdapter adapter = new TopicAdapter(topicEntities, this::showTopicDetailScreen);
+                rvTopics.setAdapter(adapter);
+
+                topicController.getAllTopicProgressLiveData().observe(this, progressList -> {
+                    if (progressList != null) {
+                        java.util.Map<Integer, com.example.vocabmaster.model.entity.TopicProgressItem> progressMap = new java.util.HashMap<>();
+                        for (com.example.vocabmaster.model.entity.TopicProgressItem item : progressList) {
+                            progressMap.put(item.getTopicId(), item);
+                        }
+                        adapter.updateProgressMap(progressMap);
+                    }
+                });
                 updateDashboardStats();
             }
         });
@@ -370,6 +383,12 @@ public class MainActivity extends AppCompatActivity {
                     localeStr -> {
                         dailyProgressManager.setTtsLocale(localeStr);
                         speechController.applyTtsSettings();
+                        FirebaseSyncController.getInstance().pushDailySettings(dailyProgressManager);
+                    },
+                    speed -> {
+                        dailyProgressManager.setTtsSpeed(speed);
+                        speechController.applyTtsSettings();
+                        FirebaseSyncController.getInstance().pushDailySettings(dailyProgressManager);
                     },
                     () -> topicController.clearAllData(dailyProgressManager, () -> {
                         updateDashboardStats();
@@ -405,25 +424,31 @@ public class MainActivity extends AppCompatActivity {
 
         updateWordListRunnable = () -> {
             int mainId = chipGroupWordList != null ? chipGroupWordList.getCheckedChipId() : R.id.chipTopic;
-            int subTag = -1;
+            TopicController.VocabFilterType filterType = TopicController.VocabFilterType.ALL;
+            if (mainId == R.id.chipLearned) filterType = TopicController.VocabFilterType.LEARNED;
+            else if (mainId == R.id.chipFavorite) filterType = TopicController.VocabFilterType.FAVORITE;
+            else if (mainId == R.id.chipWrong) filterType = TopicController.VocabFilterType.WRONG;
+            else if (mainId == R.id.chipAdded) filterType = TopicController.VocabFilterType.CUSTOM;
+
+            int selectedTopicId = -1;
             if (chipGroupSubTopics != null) {
                 View checkedSub = chipGroupSubTopics.findViewById(chipGroupSubTopics.getCheckedChipId());
                 if (checkedSub != null && checkedSub.getTag() instanceof Integer) {
-                    subTag = (Integer) checkedSub.getTag();
+                    selectedTopicId = (Integer) checkedSub.getTag();
                 }
             }
 
-            List<VocabEntity> filtered = topicController.filterVocabs(mainId, subTag, allTopics);
+            List<VocabEntity> filtered = topicController.filterVocabs(filterType, selectedTopicId);
             if (tvEmptyWordList != null) {
                 tvEmptyWordList.setVisibility(filtered.isEmpty() ? View.VISIBLE : View.GONE);
             }
 
             wordListAdapter = new VocabAdapter(filtered,
                     vocab -> speechController.speak(vocab.getWord()),
-                    (vocab, isFav) -> {
-                        topicController.toggleFavorite(vocab.getId(), isFav);
+                    (vocab, isFav) -> topicController.toggleFavorite(vocab.getId(), isFav, () -> {
                         updateDashboardStats();
-                    }
+                        if (updateWordListRunnable != null) updateWordListRunnable.run();
+                    })
             );
             wordListAdapter.setOnVocabClickListener(this::showWordDetailDialog);
             if (rvWordList != null) rvWordList.setAdapter(wordListAdapter);
@@ -446,7 +471,10 @@ public class MainActivity extends AppCompatActivity {
      * Mở BottomSheetDialog tìm kiếm từ vựng.
      */
     private void openSearchDialog() {
-        VocabDialogView.showSearchVocabDialog(this, "",
+        if (activeSearchDialog != null && activeSearchDialog.isShowing()) {
+            activeSearchDialog.dismiss();
+        }
+        activeSearchDialog = VocabDialogView.showSearchVocabDialog(this, "",
                 q -> topicController.searchVocabs(q),
                 text -> speechController.speak(text),
                 (vocab, isFav) -> {
@@ -455,7 +483,7 @@ public class MainActivity extends AppCompatActivity {
                     if (updateWordListRunnable != null) updateWordListRunnable.run();
                 },
                 vocab -> showWordDetailDialog(vocab),
-                () -> {}
+                () -> activeSearchDialog = null
         );
     }
 
@@ -653,6 +681,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (activeSearchDialog != null) {
+            if (activeSearchDialog.isShowing()) {
+                activeSearchDialog.dismiss();
+            }
+            activeSearchDialog = null;
+        }
         if (dailyGoalAnimHelper != null) dailyGoalAnimHelper.cancel();
         if (detailTopicAnimHelper != null) detailTopicAnimHelper.cancel();
         if (speechController != null) speechController.shutdown();

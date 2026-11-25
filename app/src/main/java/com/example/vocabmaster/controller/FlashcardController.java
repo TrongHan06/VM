@@ -3,6 +3,7 @@ package com.example.vocabmaster.controller;
 import com.example.vocabmaster.model.entity.TopicEntity;
 import com.example.vocabmaster.model.entity.VocabEntity;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class FlashcardController {
@@ -12,18 +13,29 @@ public class FlashcardController {
     private final DailyProgressManager dailyProgressManager;
     private final List<VocabEntity> vocabs;
     private int currentIndex = 0;
-     //hàm khởi tạo luồng học flashcard
+
     public FlashcardController(TopicEntity topic, TopicController topicController, DailyProgressManager dailyProgressManager) {
         this.topic = topic;
         this.topicController = topicController;
         this.dailyProgressManager = dailyProgressManager;
-        this.vocabs = topicController.getVocabsForTopic(topic != null ? topic.getTitle() : "");
+        List<VocabEntity> list = topicController != null && topic != null ? topicController.getVocabsForTopic(topic.getTitle()) : null;
+        this.vocabs = list != null ? list : new ArrayList<>();
     }
-    // đánh dấu card hiện tại là đã học
+
+    public FlashcardController(List<VocabEntity> vocabs, DailyProgressManager dailyProgressManager) {
+        this.topic = null;
+        this.topicController = null;
+        this.dailyProgressManager = dailyProgressManager;
+        this.vocabs = vocabs != null ? vocabs : new ArrayList<>();
+    }
+
     public void markCurrentAsLearned() {
         VocabEntity current = getCurrentVocab();
-        if (current != null && topicController != null) {
-            topicController.markVocabAsLearned(current.getId(), current.getTopicId(), dailyProgressManager);
+        if (current != null) {
+            current.setLearned(true);
+            if (topicController != null) {
+                topicController.markVocabAsLearned(current.getId(), current.getTopicId(), dailyProgressManager);
+            }
         }
     }
 
@@ -35,12 +47,11 @@ public class FlashcardController {
         if (vocabs != null && !vocabs.isEmpty() && currentIndex >= 0 && currentIndex < vocabs.size()) {
             return vocabs.get(currentIndex);
         }
-        return new VocabEntity(1, "Family", "/ˈfæməli/", "Gia đình", "I love my family.", "Tôi yêu gia đình tôi.", false, false);
+        return null;
     }
 
     public boolean nextVocab() {
-        markCurrentAsLearned();
-        if (currentIndex < vocabs.size() - 1) {
+        if (vocabs != null && currentIndex < vocabs.size() - 1) {
             currentIndex++;
             return true;
         }

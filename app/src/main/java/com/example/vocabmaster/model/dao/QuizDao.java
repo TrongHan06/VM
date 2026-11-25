@@ -20,4 +20,7 @@ public interface QuizDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     long insertQuiz(QuizEntity quiz);
+
+    @Query("DELETE FROM quizzes")
+    void clearAllQuizzes();
 }

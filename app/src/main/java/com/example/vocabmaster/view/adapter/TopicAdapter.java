@@ -12,10 +12,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.vocabmaster.R;
 import com.example.vocabmaster.model.entity.TopicEntity;
+import com.example.vocabmaster.model.entity.TopicProgressItem;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 import java.util.List;
+import java.util.Map;
 
 public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHolder> {
 
@@ -24,6 +26,7 @@ public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHol
     }
 
     private List<TopicEntity> topicList;
+    private Map<Integer, TopicProgressItem> progressMap;
     private OnTopicClickListener listener;
 
     public TopicAdapter(List<TopicEntity> topicList) {
@@ -37,6 +40,11 @@ public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHol
 
     public void setOnTopicClickListener(OnTopicClickListener listener) {
         this.listener = listener;
+    }
+
+    public void updateProgressMap(Map<Integer, TopicProgressItem> progressMap) {
+        this.progressMap = progressMap;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -58,10 +66,18 @@ public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHol
         int learned = topic.getLearnedCount();
         int percent = Math.min(100, (learned * 100) / total);
 
+        if (progressMap != null && progressMap.containsKey(topic.getId())) {
+            TopicProgressItem item = progressMap.get(topic.getId());
+            if (item != null) {
+                percent = item.getProgressPercent();
+                if (item.getTotalWords() > 0) total = item.getTotalWords();
+            }
+        }
+
         holder.progressBar.setMax(total);
         holder.progressBar.setProgress(learned);
         if (holder.tvProgressText != null) {
-            holder.tvProgressText.setText(learned + "/" + topic.getTotalCount() + " từ");
+            holder.tvProgressText.setText(learned + "/" + total + " từ");
         }
         if (holder.tvTopicPercentBadge != null) {
             holder.tvTopicPercentBadge.setText(percent + "%");

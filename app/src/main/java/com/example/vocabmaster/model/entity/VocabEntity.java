@@ -44,6 +44,9 @@ public class VocabEntity {
 
     private boolean isLearned;
 
+    @ColumnInfo(name = "is_custom", defaultValue = "0")
+    private boolean isCustom;
+
     public VocabEntity(int topicId, String word, String phonetic, String meaning, String example, String exampleMeaning, boolean isLearned, boolean isFavorite) {
         this.topicId = topicId;
         this.word = word;
@@ -89,4 +92,7 @@ public class VocabEntity {
 
     public boolean isFavorite() { return isFavorite; }
     public void setFavorite(boolean favorite) { isFavorite = favorite; }
+
+    public boolean isCustom() { return isCustom; }
+    public void setCustom(boolean custom) { isCustom = custom; }
 }

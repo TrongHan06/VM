@@ -20,4 +20,5 @@ public class PronunciationResult {
     public String getRecognizedText() { return recognizedText; }
     public String getTargetWord() { return targetWord; }
     public boolean isExact() { return isExact; }
+    public boolean isCorrect() { return isExact; }
 }

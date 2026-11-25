@@ -64,8 +64,6 @@ public class VocabDialogView {
         void onDismiss();
     }
 
-    private static BottomSheetDialog activeSearchDialog = null;
-
     private static void setTransparentBackground(BottomSheetDialog dialog) {
         if (dialog != null && dialog.getWindow() != null) {
             View bottomSheetContainer = dialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet);
@@ -79,20 +77,15 @@ public class VocabDialogView {
      * Hiển thị BottomSheetDialog tìm kiếm từ vựng ngay trên màn hình hiện tại.
      * Tự động lọc real-time khi người dùng gõ từ khóa và không chuyển tab ngoài ý muốn.
      */
-    public static void showSearchVocabDialog(Context context, String initialQuery,
-                                             OnSearchQueryProvider queryProvider,
-                                             OnSpeechListener speechListener,
-                                             OnFavoriteToggleListener favoriteListener,
-                                             VocabAdapter.OnVocabClickListener vocabClickListener,
-                                             OnDismissListener dismissListener) {
-        if (context == null || queryProvider == null) return;
-
-        if (activeSearchDialog != null && activeSearchDialog.isShowing()) {
-            activeSearchDialog.dismiss();
-        }
+    public static BottomSheetDialog showSearchVocabDialog(Context context, String initialQuery,
+                                                        OnSearchQueryProvider queryProvider,
+                                                        OnSpeechListener speechListener,
+                                                        OnFavoriteToggleListener favoriteListener,
+                                                        VocabAdapter.OnVocabClickListener vocabClickListener,
+                                                        OnDismissListener dismissListener) {
+        if (context == null || queryProvider == null) return null;
 
         BottomSheetDialog dialog = new BottomSheetDialog(context);
-        activeSearchDialog = dialog;
         View sheetView = LayoutInflater.from(context).inflate(R.layout.dialog_search_vocab, null);
         dialog.setContentView(sheetView);
         setTransparentBackground(dialog);
@@ -177,11 +170,11 @@ public class VocabDialogView {
         }
 
         dialog.setOnDismissListener(d -> {
-            activeSearchDialog = null;
             if (dismissListener != null) dismissListener.onDismiss();
         });
 
         dialog.show();
+        return dialog;
     }
 
     /**
@@ -210,14 +203,35 @@ public class VocabDialogView {
         View btnResetWordProgress = sheetView.findViewById(R.id.btnResetWordProgress);
         View btnDeleteWord = sheetView.findViewById(R.id.btnDeleteWord);
 
-        if (tvDetailWord != null) tvDetailWord.setText(vocab.getWord());
+        if (tvDetailWord != null) tvDetailWord.setText(vocab.getWord() != null ? vocab.getWord() : "");
         if (tvDetailPhoneticAndMeta != null) {
-            String meta = vocab.getPhonetic() + " • " + (vocab.getWordType() != null ? vocab.getWordType() : "từ") + " • " + (vocab.getLevel() != null ? vocab.getLevel() : "A1");
+            String phonetic = vocab.getPhonetic() != null ? vocab.getPhonetic().trim() : "";
+            String wordType = (vocab.getWordType() != null && !vocab.getWordType().trim().isEmpty()) ? vocab.getWordType().trim() : "từ";
+            String level = (vocab.getLevel() != null && !vocab.getLevel().trim().isEmpty()) ? vocab.getLevel().trim() : "A1";
+            String meta = (phonetic.isEmpty() ? "" : phonetic + " • ") + wordType + " • " + level;
             tvDetailPhoneticAndMeta.setText(meta);
         }
-        if (tvDetailMeaning != null) tvDetailMeaning.setText(vocab.getMeaning());
-        if (tvDetailExampleEn != null) tvDetailExampleEn.setText(vocab.getExample());
-        if (tvDetailExampleVi != null) tvDetailExampleVi.setText("(" + vocab.getExampleMeaning() + ")");
+        if (tvDetailMeaning != null) tvDetailMeaning.setText(vocab.getMeaning() != null ? vocab.getMeaning() : "");
+        if (tvDetailExampleEn != null) {
+            String exEn = vocab.getExample();
+            if (exEn != null && !exEn.trim().isEmpty()) {
+                tvDetailExampleEn.setVisibility(View.VISIBLE);
+                tvDetailExampleEn.setText(exEn.trim());
+            } else {
+                tvDetailExampleEn.setText("");
+                tvDetailExampleEn.setVisibility(View.GONE);
+            }
+        }
+        if (tvDetailExampleVi != null) {
+            String exVi = vocab.getExampleMeaning();
+            if (exVi != null && !exVi.trim().isEmpty()) {
+                tvDetailExampleVi.setVisibility(View.VISIBLE);
+                tvDetailExampleVi.setText("(" + exVi.trim() + ")");
+            } else {
+                tvDetailExampleVi.setText("");
+                tvDetailExampleVi.setVisibility(View.GONE);
+            }
+        }
 
         if (btnDetailFavorite != null) {
             btnDetailFavorite.setImageResource(vocab.isFavorite() ? R.drawable.ic_star_filled : R.drawable.ic_star_outline);
@@ -313,6 +327,7 @@ public class VocabDialogView {
                 if (exampleVi.isEmpty()) exampleVi = "Câu ví dụ với từ " + word + ".";
 
                 VocabEntity newVocab = new VocabEntity(topicId, word, phonetic, meaning, exampleEn, exampleVi, false, false);
+                newVocab.setCustom(true);
                 if (saveListener != null) saveListener.onSaveVocab(newVocab);
                 dialog.dismiss();
             });
