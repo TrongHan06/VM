@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Brand Primary Colors -->
+    <color name="primary_navy">#1E3A5F</color>
+    <color name="primary_blue">#2563EB</color>
+    <color name="primary_dark">#0F172A</color>
+    <color name="accent_teal">#0D9488</color>
+
+    <!-- Level Badge Colors -->
+    <color name="level_a_bg">#DCFCE7</color>
+    <color name="level_a_text">#16A34A</color>
+    <color name="level_b_bg">#DBEAFE</color>
+    <color name="level_b_text">#2563EB</color>
+    <color name="level_c_bg">#EDE9FE</color>
+    <color name="level_c_text">#7C3AED</color>
+
+    <!-- Speaker & Action Colors -->
+    <color name="speaker_bg">#EFF6FF</color>
+    <color name="speaker_icon">#2563EB</color>
+</resources>

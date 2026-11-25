@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "288129865290",
+    "project_id": "vocabmaster-f9877",
+    "storage_bucket": "vocabmaster-f9877.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:288129865290:android:846e036b59a69d9e3c38b3",
+        "android_client_info": {
+          "package_name": "com.example.vocabmaster"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "288129865290-gvg54ibjkgiph9lgl2ajlgmtpcp7fq95.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.vocabmaster",
+            "certificate_hash": "439def3991b24be99b6ccacf8f9a4601c1491c4e"
+          }
+        },
+        {
+          "client_id": "288129865290-1dhqcro3ab3683d20jdcm2vaumq5l53g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCY_BQv9o55r7I1ljHnmFdcrnq6D25dRmM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "288129865290-1dhqcro3ab3683d20jdcm2vaumq5l53g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

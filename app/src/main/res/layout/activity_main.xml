@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F1F5F9">
+
+    <!-- 1. TAB 1: TRANG CHỦ -->
+    <include layout="@layout/layout_tab_home" />
+
+    <!-- 2. TAB 2: KIỂM TRA -->
+    <include layout="@layout/layout_tab_test" />
+
+    <!-- 3. TAB 3: DANH SÁCH TỪ -->
+    <include layout="@layout/layout_tab_word_list" />
+
+    <!-- 4. TAB 4: THÔNG TIN -->
+    <include layout="@layout/layout_tab_info" />
+
+    <!-- 5. CHI TIẾT CHỦ ĐỀ -->
+    <include layout="@layout/layout_topic_detail" />
+
+    <!-- 6. Thanh điều hướng bo tròn 2 góc trên và dính sát đáy -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="70dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_bottom_nav_rounded"
+        app:elevation="12dp"
+        app:labelVisibilityMode="labeled"
+        app:itemIconSize="22dp"
+        app:itemPaddingTop="10dp"
+        app:itemPaddingBottom="10dp"
+        app:itemTextAppearanceActive="@style/BottomNavTextActive"
+        app:itemTextAppearanceInactive="@style/BottomNavTextInactive"
+        app:itemTextColor="#1E3A5F"
+        app:itemActiveIndicatorStyle="@style/App.CustomIndicator"
+        app:itemIconTint="@null"
+        app:itemRippleColor="@android:color/transparent"
+        app:menu="@menu/bottom_nav_menu" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

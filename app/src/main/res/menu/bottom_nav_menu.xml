@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_home"
+        android:enabled="true"
+        android:icon="@drawable/ic_home"
+        android:title="Trang chủ" />
+
+    <item
+        android:id="@+id/nav_quiz"
+        android:enabled="true"
+        android:icon="@drawable/ic_trophy"
+        android:title="Kiểm tra" />
+
+    <item
+        android:id="@+id/nav_word_list"
+        android:enabled="true"
+        android:icon="@drawable/ic_word_list"
+        android:title="Danh sách từ" />
+
+    <item
+        android:id="@+id/nav_info"
+        android:enabled="true"
+        android:icon="@drawable/ic_profile"
+        android:title="Thông tin" />
+</menu>

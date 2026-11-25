@@ -1,0 +1,27 @@
+<resources>
+    <!-- 1. Style cho nền bo tròn xung quanh icon đang chọn -->
+    <style name="App.CustomIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">#E2E8F0</item> <!-- Màu xám xanh nhạt nổi bật trên nền trắng -->
+        <item name="android:width">56dp</item>    <!-- Chiều rộng khung bo vừa vặn -->
+        <item name="android:height">30dp</item>   <!-- Chiều cao gọn để không đè mất chữ -->
+        <item name="marginHorizontal">0dp</item>
+        <item name="shapeAppearance">@style/App.CustomIndicator.Shape</item>
+    </style>
+
+    <!-- Định nghĩa độ bo góc 16dp chuẩn Material 3 -->
+    <style name="App.CustomIndicator.Shape" parent="ShapeAppearance.Material3.Corner.Full">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <!-- 2. Style cho chữ của BottomNavigationView (Giúp chữ "Trắc nghiệm" không bị cắt) -->
+    <style name="BottomNavTextActive" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textSize">11.5sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="BottomNavTextInactive" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+</resources>
