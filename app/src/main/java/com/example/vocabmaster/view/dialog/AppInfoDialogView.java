@@ -55,6 +55,10 @@ public class AppInfoDialogView {
         void onSelectVoice(String localeStr);
     }
 
+    public interface OnSelectTtsSpeedListener {
+        void onSelectSpeed(float speed);
+    }
+
     public interface OnResetDataListener {
         void onResetData();
     }
@@ -451,6 +455,16 @@ public class AppInfoDialogView {
      */
     public static void showSettingsDialog(Context context, String currentLocale, float currentSpeed,
                                            OnSelectTtsVoiceListener ttsListener, OnResetDataListener resetListener) {
+        showSettingsDialog(context, currentLocale, currentSpeed, ttsListener, null, resetListener);
+    }
+
+    /**
+     * Hiển thị BottomSheetDialog Cài đặt & Khác với lựa chọn ChipGroup cho giọng đọc TTS và tốc độ phát âm.
+     */
+    public static void showSettingsDialog(Context context, String currentLocale, float currentSpeed,
+                                           OnSelectTtsVoiceListener ttsListener,
+                                           OnSelectTtsSpeedListener speedListener,
+                                           OnResetDataListener resetListener) {
         if (context == null) return;
 
         BottomSheetDialog dialog = new BottomSheetDialog(context);
@@ -467,6 +481,7 @@ public class AppInfoDialogView {
         View btnSettingsClose = sheetView.findViewById(R.id.btnSettingsClose);
 
         if (chipGroupTtsVoice != null) {
+            chipGroupTtsVoice.setSelectionRequired(true);
             if ("UK".equalsIgnoreCase(currentLocale) && chipVoiceUk != null) {
                 chipVoiceUk.setChecked(true);
             } else if (chipVoiceUs != null) {
@@ -482,9 +497,20 @@ public class AppInfoDialogView {
         }
 
         if (chipGroupTtsSpeed != null) {
+            chipGroupTtsSpeed.setSelectionRequired(true);
             if (currentSpeed <= 0.8f) chipGroupTtsSpeed.check(R.id.chipSpeed075);
             else if (currentSpeed >= 1.2f) chipGroupTtsSpeed.check(R.id.chipSpeed125);
             else chipGroupTtsSpeed.check(R.id.chipSpeed100);
+
+            chipGroupTtsSpeed.setOnCheckedStateChangeListener((group, checkedIds) -> {
+                if (!checkedIds.isEmpty()) {
+                    int id = checkedIds.get(0);
+                    float selectedSpeed = 1.0f;
+                    if (id == R.id.chipSpeed075) selectedSpeed = 0.75f;
+                    else if (id == R.id.chipSpeed125) selectedSpeed = 1.25f;
+                    if (speedListener != null) speedListener.onSelectSpeed(selectedSpeed);
+                }
+            });
         }
 
         if (btnResetData != null) {

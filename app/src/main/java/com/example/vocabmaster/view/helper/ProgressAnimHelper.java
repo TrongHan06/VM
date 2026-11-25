@@ -198,12 +198,11 @@ public class ProgressAnimHelper {
         chipGroupSubTopics.addView(allChip);
 
         if (allTopics != null) {
-            int tagIdx = 1;
             for (TopicEntity t : allTopics) {
                 Chip topicChip = new Chip(context);
                 topicChip.setText(t.getTitle());
                 topicChip.setCheckable(true);
-                topicChip.setTag(tagIdx++);
+                topicChip.setTag(t.getId());
                 topicChip.setChipBackgroundColor(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
                 topicChip.setTextColor(android.graphics.Color.parseColor("#1E3A5F"));
                 chipGroupSubTopics.addView(topicChip);

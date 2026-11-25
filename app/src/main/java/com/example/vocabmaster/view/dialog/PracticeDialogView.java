@@ -14,6 +14,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Lớp View quản lý giao diện BottomSheetDialog làm bài tập trắc nghiệm và Dialog tổng kết điểm số.
@@ -77,20 +78,57 @@ public class PracticeDialogView {
 
         final Runnable[] loadNextQuestion = new Runnable[1];
 
+        View cardExplanation = sheetView.findViewById(R.id.cardExplanation);
+        View btnNextPractice = sheetView.findViewById(R.id.btnNextPractice);
+        com.google.android.material.progressindicator.LinearProgressIndicator progressQuizSession = sheetView.findViewById(R.id.progressQuizSession);
+        TextView tvPracticeWord = sheetView.findViewById(R.id.tvPracticeWord);
+        TextView tvPracticePhonetic = sheetView.findViewById(R.id.tvPracticePhonetic);
+        View btnPracticePronunciation = sheetView.findViewById(R.id.btnPracticePronunciation);
+
+        com.google.android.material.card.MaterialCardView[] optionCards = {
+                sheetView.findViewById(R.id.cardOptionA),
+                sheetView.findViewById(R.id.cardOptionB),
+                sheetView.findViewById(R.id.cardOptionC),
+                sheetView.findViewById(R.id.cardOptionD)
+        };
+        TextView[] optionTexts = {
+                sheetView.findViewById(R.id.tvOptionA),
+                sheetView.findViewById(R.id.tvOptionB),
+                sheetView.findViewById(R.id.tvOptionC),
+                sheetView.findViewById(R.id.tvOptionD)
+        };
+        TextView[] optionBadges = {
+                sheetView.findViewById(R.id.tvBadgeOptionA),
+                sheetView.findViewById(R.id.tvBadgeOptionB),
+                sheetView.findViewById(R.id.tvBadgeOptionC),
+                sheetView.findViewById(R.id.tvBadgeOptionD)
+        };
+
+        TextView tvExplanationExample = sheetView.findViewById(R.id.tvExplanationExample);
+        TextView tvExplanationMeaning = sheetView.findViewById(R.id.tvExplanationMeaning);
+        TextView tvExplanationResult = sheetView.findViewById(R.id.tvExplanationResult);
+
+        if (btnNextPractice != null) {
+            btnNextPractice.setOnClickListener(nextV -> {
+                if (practiceController.isSessionCompleted()) return;
+                practiceController.advanceToNextQuestion();
+                loadNextQuestion[0].run();
+            });
+        }
+
         loadNextQuestion[0] = () -> {
             if (practiceController.isSessionCompleted()) {
                 dialog.dismiss();
                 showQuizSummaryDialog(context, practiceController, retryListener);
-                if (dismissListener != null) dismissListener.onDismiss();
                 return;
             }
 
             VocabEntity questionVocab = practiceController.getCurrentQuestion();
+            if (questionVocab == null) {
+                dialog.dismiss();
+                return;
+            }
             final boolean[] isAnswered = {false};
-
-            View cardExplanation = sheetView.findViewById(R.id.cardExplanation);
-            View btnNextPractice = sheetView.findViewById(R.id.btnNextPractice);
-            com.google.android.material.progressindicator.LinearProgressIndicator progressQuizSession = sheetView.findViewById(R.id.progressQuizSession);
 
             if (cardExplanation != null) cardExplanation.setVisibility(View.GONE);
             if (btnNextPractice != null) btnNextPractice.setVisibility(View.GONE);
@@ -110,131 +148,138 @@ public class PracticeDialogView {
                 behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
             }
 
-            TextView tvPracticeWord = sheetView.findViewById(R.id.tvPracticeWord);
-            TextView tvPracticePhonetic = sheetView.findViewById(R.id.tvPracticePhonetic);
-            if (tvPracticeWord != null) tvPracticeWord.setText(questionVocab.getWord() + " (" + (practiceController.getQuestionIndex() + 1) + "/" + practiceController.getTotalQuestions() + ")");
-            if (tvPracticePhonetic != null) tvPracticePhonetic.setText(questionVocab.getPhonetic());
+            String wordStr = questionVocab.getWord() != null ? questionVocab.getWord() : "";
+            String phoneticStr = questionVocab.getPhonetic() != null ? questionVocab.getPhonetic() : "";
+            if (tvPracticeWord != null) {
+                tvPracticeWord.setText(wordStr + " (" + (practiceController.getQuestionIndex() + 1) + "/" + practiceController.getTotalQuestions() + ")");
+            }
+            if (tvPracticePhonetic != null) tvPracticePhonetic.setText(phoneticStr);
 
-            View btnPracticePronunciation = sheetView.findViewById(R.id.btnPracticePronunciation);
             if (btnPracticePronunciation != null) {
                 btnPracticePronunciation.setOnClickListener(v -> {
-                    if (speechListener != null) speechListener.onSpeak(questionVocab.getWord());
+                    if (speechListener != null && !wordStr.isEmpty()) speechListener.onSpeak(wordStr);
                 });
             }
 
             List<String> options = practiceController.generateOptionsForCurrentQuestion();
             String correctAnswer = questionVocab.getMeaning();
 
-            TextView tvOptionA = sheetView.findViewById(R.id.tvOptionA);
-            TextView tvOptionB = sheetView.findViewById(R.id.tvOptionB);
-            TextView tvOptionC = sheetView.findViewById(R.id.tvOptionC);
-            TextView tvOptionD = sheetView.findViewById(R.id.tvOptionD);
-
-            TextView tvBadgeOptionA = sheetView.findViewById(R.id.tvBadgeOptionA);
-            TextView tvBadgeOptionB = sheetView.findViewById(R.id.tvBadgeOptionB);
-            TextView tvBadgeOptionC = sheetView.findViewById(R.id.tvBadgeOptionC);
-            TextView tvBadgeOptionD = sheetView.findViewById(R.id.tvBadgeOptionD);
-
-            if (tvOptionA != null && !options.isEmpty()) tvOptionA.setText(options.get(0));
-            if (tvOptionB != null && options.size() > 1) tvOptionB.setText(options.get(1));
-            if (tvOptionC != null && options.size() > 2) tvOptionC.setText(options.get(2));
-            if (tvOptionD != null && options.size() > 3) tvOptionD.setText(options.get(3));
-
-            com.google.android.material.card.MaterialCardView[] optionCards = {
-                    sheetView.findViewById(R.id.cardOptionA),
-                    sheetView.findViewById(R.id.cardOptionB),
-                    sheetView.findViewById(R.id.cardOptionC),
-                    sheetView.findViewById(R.id.cardOptionD)
-            };
-
-            TextView[] optionBadges = { tvBadgeOptionA, tvBadgeOptionB, tvBadgeOptionC, tvBadgeOptionD };
-
-            for (int c = 0; c < 4; c++) {
-                if (optionCards[c] != null) {
-                    optionCards[c].setCardBackgroundColor(android.graphics.Color.parseColor("#F8FAFC"));
-                    optionCards[c].setStrokeColor(android.graphics.Color.parseColor("#CBD5E1"));
-                }
-                if (optionBadges[c] != null) {
-                    optionBadges[c].setTextColor(android.graphics.Color.parseColor("#1E3A5F"));
-                }
-            }
-
-            TextView[] optionTexts = { tvOptionA, tvOptionB, tvOptionC, tvOptionD };
-            TextView tvExplanationExample = sheetView.findViewById(R.id.tvExplanationExample);
-            TextView tvExplanationMeaning = sheetView.findViewById(R.id.tvExplanationMeaning);
-            TextView tvExplanationResult = sheetView.findViewById(R.id.tvExplanationResult);
-
             for (int i = 0; i < 4; i++) {
-                final int index = i;
-                if (optionCards[i] != null && optionTexts[i] != null) {
-                    optionCards[i].setOnClickListener(v -> {
-                        if (isAnswered[0]) return;
-                        isAnswered[0] = true;
+                if (optionCards[i] != null) {
+                    optionCards[i].setCardBackgroundColor(android.graphics.Color.parseColor("#F8FAFC"));
+                    optionCards[i].setStrokeColor(android.graphics.Color.parseColor("#CBD5E1"));
+                }
+                if (optionBadges[i] != null) {
+                    optionBadges[i].setTextColor(android.graphics.Color.parseColor("#1E3A5F"));
+                }
 
-                        String selectedAnswer = optionTexts[index].getText().toString();
+                if (i < options.size()) {
+                    if (optionCards[i] != null) {
+                        optionCards[i].setVisibility(View.VISIBLE);
+                    }
+                    if (optionTexts[i] != null) {
+                        optionTexts[i].setText(options.get(i));
+                    }
+                    if (optionCards[i] != null && optionTexts[i] != null) {
+                        final int index = i;
+                        optionCards[i].setOnClickListener(v -> {
+                            if (isAnswered[0]) return;
+                            isAnswered[0] = true;
 
-                        if (practiceController.checkAnswer(selectedAnswer)) {
-                            optionCards[index].setCardBackgroundColor(android.graphics.Color.parseColor("#DCFCE7"));
-                            optionCards[index].setStrokeColor(android.graphics.Color.parseColor("#16A34A"));
-                            if (optionBadges[index] != null) {
-                                optionBadges[index].setTextColor(android.graphics.Color.parseColor("#16A34A"));
-                            }
-                            if (tvExplanationResult != null) {
-                                tvExplanationResult.setText("Chính xác!");
-                                tvExplanationResult.setTextColor(android.graphics.Color.parseColor("#16A34A"));
-                            }
-                        } else {
-                            optionCards[index].setCardBackgroundColor(android.graphics.Color.parseColor("#FEE2E2"));
-                            optionCards[index].setStrokeColor(android.graphics.Color.parseColor("#DC2626"));
-                            if (optionBadges[index] != null) {
-                                optionBadges[index].setTextColor(android.graphics.Color.parseColor("#DC2626"));
-                            }
-                            if (tvExplanationResult != null) {
-                                tvExplanationResult.setText("Chưa chính xác!");
-                                tvExplanationResult.setTextColor(android.graphics.Color.parseColor("#DC2626"));
-                            }
-                            for (int j = 0; j < 4; j++) {
-                                if (optionTexts[j].getText().toString().equals(correctAnswer)) {
-                                    optionCards[j].setCardBackgroundColor(android.graphics.Color.parseColor("#DCFCE7"));
-                                    optionCards[j].setStrokeColor(android.graphics.Color.parseColor("#16A34A"));
-                                    if (optionBadges[j] != null) {
-                                        optionBadges[j].setTextColor(android.graphics.Color.parseColor("#16A34A"));
+                            CharSequence textSeq = optionTexts[index].getText();
+                            String selectedAnswer = textSeq != null ? textSeq.toString() : "";
+
+                            if (practiceController.checkAnswer(selectedAnswer)) {
+                                optionCards[index].setCardBackgroundColor(android.graphics.Color.parseColor("#DCFCE7"));
+                                optionCards[index].setStrokeColor(android.graphics.Color.parseColor("#16A34A"));
+                                if (optionBadges[index] != null) {
+                                    optionBadges[index].setTextColor(android.graphics.Color.parseColor("#16A34A"));
+                                }
+                                if (tvExplanationResult != null) {
+                                    tvExplanationResult.setText("Chính xác!");
+                                    tvExplanationResult.setTextColor(android.graphics.Color.parseColor("#16A34A"));
+                                }
+                            } else {
+                                optionCards[index].setCardBackgroundColor(android.graphics.Color.parseColor("#FEE2E2"));
+                                optionCards[index].setStrokeColor(android.graphics.Color.parseColor("#DC2626"));
+                                if (optionBadges[index] != null) {
+                                    optionBadges[index].setTextColor(android.graphics.Color.parseColor("#DC2626"));
+                                }
+                                if (tvExplanationResult != null) {
+                                    tvExplanationResult.setText("Chưa chính xác!");
+                                    tvExplanationResult.setTextColor(android.graphics.Color.parseColor("#DC2626"));
+                                }
+                                for (int j = 0; j < 4; j++) {
+                                    if (optionCards[j] != null
+                                            && optionCards[j].getVisibility() == View.VISIBLE
+                                            && optionTexts[j] != null
+                                            && optionTexts[j].getText() != null
+                                            && Objects.equals(optionTexts[j].getText().toString(), correctAnswer)) {
+                                        optionCards[j].setCardBackgroundColor(android.graphics.Color.parseColor("#DCFCE7"));
+                                        optionCards[j].setStrokeColor(android.graphics.Color.parseColor("#16A34A"));
+                                        if (optionBadges[j] != null) {
+                                            optionBadges[j].setTextColor(android.graphics.Color.parseColor("#16A34A"));
+                                        }
+                                        break;
                                     }
-                                    break;
                                 }
                             }
-                        }
 
-                        if (sheetView.getLayoutParams() != null) {
-                            sheetView.getLayoutParams().height = twoThirdsScreenHeight;
-                            sheetView.requestLayout();
-                        }
-                        if (sheetView.getParent() != null) {
-                            BottomSheetBehavior<View> behavior = BottomSheetBehavior.from((View) sheetView.getParent());
-                            behavior.setPeekHeight(twoThirdsScreenHeight);
-                            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-                        }
+                            if (sheetView.getLayoutParams() != null) {
+                                sheetView.getLayoutParams().height = twoThirdsScreenHeight;
+                                sheetView.requestLayout();
+                            }
+                            if (sheetView.getParent() != null) {
+                                BottomSheetBehavior<View> behavior = BottomSheetBehavior.from((View) sheetView.getParent());
+                                behavior.setPeekHeight(twoThirdsScreenHeight);
+                                behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                            }
 
-                        if (tvExplanationExample != null) tvExplanationExample.setText("• Ví dụ: " + questionVocab.getExample());
-                        if (tvExplanationMeaning != null) tvExplanationMeaning.setText("• Dịch nghĩa: " + questionVocab.getExampleMeaning());
-
-                        if (cardExplanation != null) cardExplanation.setVisibility(View.VISIBLE);
-                        if (btnNextPractice != null) {
-                            btnNextPractice.setVisibility(View.VISIBLE);
-                            if (btnNextPractice instanceof com.google.android.material.button.MaterialButton) {
-                                com.google.android.material.button.MaterialButton btnNext = (com.google.android.material.button.MaterialButton) btnNextPractice;
-                                if (practiceController.isLastQuestion()) {
-                                    btnNext.setText("Hoàn thành");
+                            if (tvExplanationExample != null) {
+                                String exEn = questionVocab.getExample();
+                                if (exEn != null && !exEn.trim().isEmpty()) {
+                                    tvExplanationExample.setVisibility(View.VISIBLE);
+                                    tvExplanationExample.setText("• Ví dụ: " + exEn.trim());
                                 } else {
-                                    btnNext.setText("Câu tiếp theo →");
+                                    tvExplanationExample.setText("");
+                                    tvExplanationExample.setVisibility(View.GONE);
                                 }
                             }
-                            btnNextPractice.setOnClickListener(nextV -> {
-                                practiceController.advanceToNextQuestion();
-                                loadNextQuestion[0].run();
-                            });
-                        }
-                    });
+                            if (tvExplanationMeaning != null) {
+                                String exVi = questionVocab.getExampleMeaning();
+                                if (exVi != null && !exVi.trim().isEmpty()) {
+                                    tvExplanationMeaning.setVisibility(View.VISIBLE);
+                                    tvExplanationMeaning.setText("• Dịch nghĩa: " + exVi.trim());
+                                } else {
+                                    tvExplanationMeaning.setText("");
+                                    tvExplanationMeaning.setVisibility(View.GONE);
+                                }
+                            }
+
+                            if (cardExplanation != null) cardExplanation.setVisibility(View.VISIBLE);
+                            if (btnNextPractice != null) {
+                                btnNextPractice.setVisibility(View.VISIBLE);
+                                if (btnNextPractice instanceof com.google.android.material.button.MaterialButton) {
+                                    com.google.android.material.button.MaterialButton btnNext = (com.google.android.material.button.MaterialButton) btnNextPractice;
+                                    if (practiceController.isLastQuestion()) {
+                                        btnNext.setText("Hoàn thành");
+                                    } else {
+                                        btnNext.setText("Câu tiếp theo →");
+                                    }
+                                }
+                            }
+                        });
+                    } else if (optionCards[i] != null) {
+                        optionCards[i].setOnClickListener(null);
+                    }
+                } else {
+                    if (optionTexts[i] != null) {
+                        optionTexts[i].setText("");
+                    }
+                    if (optionCards[i] != null) {
+                        optionCards[i].setVisibility(View.GONE);
+                        optionCards[i].setOnClickListener(null);
+                    }
                 }
             }
         };

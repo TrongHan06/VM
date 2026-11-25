@@ -9,6 +9,7 @@ import androidx.room.Query;
 import androidx.room.Update;
 
 import com.example.vocabmaster.model.entity.TopicProgress;
+import com.example.vocabmaster.model.entity.TopicProgressItem;
 import com.example.vocabmaster.model.entity.VocabEntity;
 
 import java.util.List;
@@ -27,6 +28,9 @@ public interface VocabDao {
 
     @Query("SELECT * FROM vocabularies WHERE topic_id = :topicId")
     LiveData<List<VocabEntity>> getVocabsByTopicIdLiveData(int topicId);
+
+    @Query("SELECT * FROM vocabularies WHERE topic_id = :topicId AND LOWER(word) = LOWER(:word) LIMIT 1")
+    VocabEntity findByTopicAndWord(int topicId, String word);
 
     @Query("SELECT COUNT(*) FROM vocabularies WHERE isLearned = 1")
     int getLearnedWordsCount();
@@ -74,4 +78,31 @@ public interface VocabDao {
            "LEFT JOIN learning_progress lp ON v.vocabulary_id = lp.vocabulary_id " +
            "WHERE v.topic_id = :topicId")
     LiveData<TopicProgress> getTopicProgressLiveData(int topicId);
+
+    @Query("SELECT v.topic_id AS topicId, " +
+           "COUNT(DISTINCT v.vocabulary_id) AS totalWords, " +
+           "COUNT(DISTINCT CASE WHEN v.isLearned = 1 THEN v.vocabulary_id END) AS flashcardCount, " +
+           "COUNT(DISTINCT CASE WHEN UPPER(lp.status) = 'MASTERED' THEN v.vocabulary_id END) AS quizCount " +
+           "FROM vocabularies v " +
+           "LEFT JOIN learning_progress lp ON v.vocabulary_id = lp.vocabulary_id " +
+           "GROUP BY v.topic_id")
+    LiveData<List<TopicProgressItem>> getAllTopicProgressLiveData();
+
+    @Query("SELECT v.topic_id AS topicId, " +
+           "COUNT(DISTINCT v.vocabulary_id) AS totalWords, " +
+           "COUNT(DISTINCT CASE WHEN v.isLearned = 1 THEN v.vocabulary_id END) AS flashcardCount, " +
+           "COUNT(DISTINCT CASE WHEN UPPER(lp.status) = 'MASTERED' THEN v.vocabulary_id END) AS quizCount " +
+           "FROM vocabularies v " +
+           "LEFT JOIN learning_progress lp ON v.vocabulary_id = lp.vocabulary_id " +
+           "GROUP BY v.topic_id")
+    List<TopicProgressItem> getAllTopicProgressList();
+
+    @Query("SELECT * FROM vocabularies WHERE vocabulary_id = :vocabId LIMIT 1")
+    VocabEntity getVocabById(int vocabId);
+
+    @Query("SELECT v.* FROM vocabularies v INNER JOIN learning_progress lp ON v.vocabulary_id = lp.vocabulary_id WHERE lp.next_review <= :currentTime")
+    List<VocabEntity> getDueReviewVocabs(long currentTime);
+
+    @Query("UPDATE vocabularies SET isLearned = 0, is_favorite = 0")
+    void resetAllVocabStates();
 }

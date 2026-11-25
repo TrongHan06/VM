@@ -3,6 +3,7 @@ package com.example.vocabmaster.model.entity;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.ForeignKey;
+import androidx.room.Ignore;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
@@ -38,6 +39,15 @@ public class LearningProgressEntity {
         this.correctCount = correctCount;
         this.wrongCount = wrongCount;
         this.nextReview = nextReview;
+    }
+
+    @Ignore
+    public LearningProgressEntity(int vocabularyId, int correctCount, int wrongCount, long nextReview, String status) {
+        this.vocabularyId = vocabularyId;
+        this.correctCount = correctCount;
+        this.wrongCount = wrongCount;
+        this.nextReview = nextReview;
+        this.status = status;
     }
 
     public int getProgressId() { return progressId; }

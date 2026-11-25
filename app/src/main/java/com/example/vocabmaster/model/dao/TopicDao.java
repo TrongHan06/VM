@@ -37,4 +37,7 @@ public interface TopicDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAllTopics(List<TopicEntity> topics);
+
+    @Query("UPDATE topics SET learnedCount = 0")
+    void resetAllTopicLearnedCounts();
 }

@@ -14,14 +14,56 @@ import com.example.vocabmaster.model.entity.QuizResultEntity;
 import com.example.vocabmaster.model.entity.QuizResultWithQuiz;
 import com.example.vocabmaster.model.entity.TopicEntity;
 import com.example.vocabmaster.model.entity.TopicProgress;
+import com.example.vocabmaster.model.entity.TopicProgressItem;
 import com.example.vocabmaster.model.entity.VocabEntity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class TopicController {
+
+    public enum VocabFilterType {
+        ALL, LEARNED, FAVORITE, WRONG, CUSTOM
+    }
+
+    public static List<VocabEntity> filterVocabList(
+            List<VocabEntity> allVocabs,
+            Set<Integer> wrongIds,
+            VocabFilterType filterType,
+            int selectedTopicId) {
+        if (allVocabs == null || allVocabs.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<VocabEntity> filtered = new ArrayList<>();
+        for (VocabEntity v : allVocabs) {
+            if (v == null) continue;
+
+            if (selectedTopicId > 0 && v.getTopicId() != selectedTopicId) {
+                continue;
+            }
+
+            boolean matchesType = false;
+            if (filterType == null || filterType == VocabFilterType.ALL) {
+                matchesType = true;
+            } else if (filterType == VocabFilterType.LEARNED) {
+                matchesType = v.isLearned();
+            } else if (filterType == VocabFilterType.FAVORITE) {
+                matchesType = v.isFavorite();
+            } else if (filterType == VocabFilterType.WRONG) {
+                matchesType = wrongIds != null && wrongIds.contains(v.getId());
+            } else if (filterType == VocabFilterType.CUSTOM) {
+                matchesType = v.isCustom();
+            }
+
+            if (matchesType) {
+                filtered.add(v);
+            }
+        }
+        return filtered;
+    }
 
     private final AppDatabase db;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -88,62 +130,43 @@ public class TopicController {
         }
     }
 
-    public List<VocabEntity> filterVocabs(int checkedMainChipId, int selectedSubTag, List<TopicEntity> allTopics) {
+    public List<VocabEntity> filterVocabs(VocabFilterType filterType, int selectedTopicId) {
         List<VocabEntity> allVocabs = getAllVocabs();
-        List<VocabEntity> baseList = new ArrayList<>();
-
-        if (checkedMainChipId == R.id.chipTopic) {
-            baseList.addAll(allVocabs);
-        } else if (checkedMainChipId == R.id.chipLearned) {
-            for (VocabEntity v : allVocabs) {
-                if (v.isLearned()) baseList.add(v);
-            }
-        } else if (checkedMainChipId == R.id.chipFavorite) {
-            for (VocabEntity v : allVocabs) {
-                if (v.isFavorite()) baseList.add(v);
-            }
-        } else if (checkedMainChipId == R.id.chipWrong) {
-            List<VocabEntity> wrongList = getWrongVocabs();
-            if (wrongList != null) {
-                baseList.addAll(wrongList);
-            }
-        } else if (checkedMainChipId == R.id.chipAdded) {
-            for (VocabEntity v : allVocabs) {
-                if (v.getId() > 120) baseList.add(v);
-            }
-        } else {
-            baseList.addAll(allVocabs);
-        }
-
-        List<VocabEntity> filteredList = new ArrayList<>();
-        if (selectedSubTag == -1) {
-            filteredList.addAll(baseList);
-        } else if (selectedSubTag == -2) {
-            for (VocabEntity v : baseList) {
-                if (v.getId() > 120 || (allTopics != null && v.getTopicId() > allTopics.size())) {
-                    filteredList.add(v);
-                }
-            }
-        } else {
-            TopicEntity selectedTopic = null;
-            if (allTopics != null && selectedSubTag >= 1 && selectedSubTag <= allTopics.size()) {
-                selectedTopic = allTopics.get(selectedSubTag - 1);
-            }
-            if (selectedTopic != null) {
-                List<VocabEntity> topicVocabs = getVocabsForTopic(selectedTopic.getTitle());
-                for (VocabEntity v : baseList) {
-                    for (VocabEntity tv : topicVocabs) {
-                        if (tv.getId() == v.getId()) {
-                            filteredList.add(v);
-                            break;
-                        }
-                    }
-                }
-            } else {
-                filteredList.addAll(baseList);
+        List<VocabEntity> wrongVocabs = getWrongVocabs();
+        java.util.Set<Integer> wrongIds = new java.util.HashSet<>();
+        if (wrongVocabs != null) {
+            for (VocabEntity v : wrongVocabs) {
+                wrongIds.add(v.getId());
             }
         }
-        return filteredList;
+        return filterVocabList(allVocabs, wrongIds, filterType, selectedTopicId);
+    }
+
+    public List<VocabEntity> filterVocabs(int checkedMainChipId, int selectedSubTag, List<TopicEntity> allTopics) {
+        VocabFilterType filterType = VocabFilterType.ALL;
+        if (checkedMainChipId == R.id.chipLearned) filterType = VocabFilterType.LEARNED;
+        else if (checkedMainChipId == R.id.chipFavorite) filterType = VocabFilterType.FAVORITE;
+        else if (checkedMainChipId == R.id.chipWrong) filterType = VocabFilterType.WRONG;
+        else if (checkedMainChipId == R.id.chipAdded) filterType = VocabFilterType.CUSTOM;
+
+        int selectedTopicId = -1;
+        if (selectedSubTag == -2) {
+            filterType = VocabFilterType.CUSTOM;
+        } else if (allTopics != null && selectedSubTag >= 1 && selectedSubTag <= allTopics.size()) {
+            selectedTopicId = allTopics.get(selectedSubTag - 1).getId();
+        } else if (selectedSubTag > 0) {
+            selectedTopicId = selectedSubTag;
+        }
+
+        return filterVocabs(filterType, selectedTopicId);
+    }
+
+    public LiveData<List<TopicProgressItem>> getAllTopicProgressLiveData() {
+        return db.vocabDao().getAllTopicProgressLiveData();
+    }
+
+    public List<TopicProgressItem> getAllTopicProgressList() {
+        return db.vocabDao().getAllTopicProgressList();
     }
 
     public int calculateTopicProgressPercent(int topicId) {
@@ -163,16 +186,12 @@ public class TopicController {
                 quizCount++;
             }
         }
-        TopicProgress tp = new TopicProgress(totalWords, flashcardCount, quizCount);
+        TopicProgressItem tp = new TopicProgressItem(topicId, totalWords, flashcardCount, quizCount);
         return tp.getProgressPercent();
     }
 
     private VocabEntity findVocabById(int vocabId) {
-        List<VocabEntity> all = db.vocabDao().getAllVocabs();
-        for (VocabEntity v : all) {
-            if (v.getId() == vocabId) return v;
-        }
-        return null;
+        return db.vocabDao().getVocabById(vocabId);
     }
 
     public void markAsLearnedIfUnlearned(int vocabId, int topicId, DailyProgressManager dailyProgressManager) {
@@ -206,15 +225,20 @@ public class TopicController {
 
     public void addCustomVocab(VocabEntity vocab, Runnable onComplete) {
         executor.execute(() -> {
+            if (vocab != null) {
+                vocab.setCustom(true);
+            }
             long insertedId = db.vocabDao().insertVocab(vocab);
-            if (insertedId > 0) {
+            if (insertedId > 0 && vocab != null) {
                 vocab.setId((int) insertedId);
             }
-            db.topicDao().updateTopicLearnedCount(vocab.getTopicId());
-            db.topicDao().updateTopicTotalCount(vocab.getTopicId());
+            if (vocab != null) {
+                db.topicDao().updateTopicLearnedCount(vocab.getTopicId());
+                db.topicDao().updateTopicTotalCount(vocab.getTopicId());
 
-            FirebaseSyncController.getInstance().pushCustomVocab(vocab);
-            FirebaseSyncController.getInstance().pushVocabState(vocab, null);
+                FirebaseSyncController.getInstance().pushCustomVocab(vocab);
+                FirebaseSyncController.getInstance().pushVocabState(vocab, null);
+            }
 
             if (onComplete != null) {
                 mainHandler.post(onComplete);
@@ -224,12 +248,14 @@ public class TopicController {
 
     public void deleteVocab(VocabEntity vocab, Runnable onComplete) {
         executor.execute(() -> {
-            db.vocabDao().deleteVocab(vocab);
-            db.learningProgressDao().deleteProgressByVocabId(vocab.getId());
-            db.topicDao().updateTopicLearnedCount(vocab.getTopicId());
-            db.topicDao().updateTopicTotalCount(vocab.getTopicId());
+            if (vocab != null) {
+                db.vocabDao().deleteVocab(vocab);
+                db.learningProgressDao().deleteProgressByVocabId(vocab.getId());
+                db.topicDao().updateTopicLearnedCount(vocab.getTopicId());
+                db.topicDao().updateTopicTotalCount(vocab.getTopicId());
 
-            FirebaseSyncController.getInstance().deleteCustomVocabOnCloud(vocab.getId());
+                FirebaseSyncController.getInstance().deleteCustomVocabOnCloud(vocab);
+            }
 
             if (onComplete != null) {
                 mainHandler.post(onComplete);
@@ -241,7 +267,7 @@ public class TopicController {
         deleteVocab(vocab, null);
     }
 
-    public void toggleFavorite(int vocabId, boolean isFavorite) {
+    public void toggleFavorite(int vocabId, boolean isFavorite, Runnable onComplete) {
         executor.execute(() -> {
             db.vocabDao().updateFavoriteStatus(vocabId, isFavorite);
             VocabEntity v = findVocabById(vocabId);
@@ -249,7 +275,14 @@ public class TopicController {
             if (v != null) {
                 FirebaseSyncController.getInstance().pushVocabState(v, lp);
             }
+            if (onComplete != null) {
+                mainHandler.post(onComplete);
+            }
         });
+    }
+
+    public void toggleFavorite(int vocabId, boolean isFavorite) {
+        toggleFavorite(vocabId, isFavorite, null);
     }
 
     public void saveQuizResult(String quizName, Integer topicId, int totalQuestions, int score, int correctAnswers) {
@@ -270,37 +303,6 @@ public class TopicController {
         });
     }
 
-    public void updateLearningProgress(int vocabId, int topicId, boolean isCorrect) {
-        executor.execute(() -> {
-            LearningProgressEntity progress = db.learningProgressDao().getProgressByVocabId(vocabId);
-            long now = System.currentTimeMillis();
-
-            if (progress == null) {
-                int correct = isCorrect ? 1 : 0;
-                int wrong = isCorrect ? 0 : 1;
-                String status = isCorrect ? "MASTERED" : "LEARNING";
-                long nextReview = now + (isCorrect ? 86400000L : 3600000L);
-                progress = new LearningProgressEntity(vocabId, status, correct, wrong, nextReview);
-            } else {
-                if (isCorrect) {
-                    progress.setCorrectCount(progress.getCorrectCount() + 1);
-                    progress.setStatus("MASTERED");
-                    progress.setNextReview(now + (86400000L * progress.getCorrectCount()));
-                } else {
-                    progress.setWrongCount(progress.getWrongCount() + 1);
-                    progress.setStatus("LEARNING");
-                    progress.setNextReview(now + 3600000L);
-                }
-            }
-            db.learningProgressDao().insertProgress(progress);
-
-            VocabEntity v = findVocabById(vocabId);
-            if (v != null) {
-                FirebaseSyncController.getInstance().pushVocabState(v, progress);
-            }
-        });
-    }
-
     public List<TopicEntity> getAllTopics() {
         return db.topicDao().getAllTopics();
     }
@@ -312,17 +314,11 @@ public class TopicController {
         if (topicEntity != null) {
             return db.vocabDao().getVocabsByTopicId(topicEntity.getId());
         }
-        List<VocabEntity> list = new ArrayList<>();
-        list.add(new VocabEntity(1, "Family", "/ˈfæməli/", "Gia đình", "I love my family.", "Tôi yêu gia đình tôi.", false, false));
-        return list;
+        return java.util.Collections.emptyList();
     }
 
     public List<VocabEntity> getAllVocabs() {
-        List<VocabEntity> vocabEntities = db.vocabDao().getAllVocabs();
-        if (vocabEntities.isEmpty()) {
-            vocabEntities.add(new VocabEntity(1, "Family", "/ˈfæməli/", "Gia đình", "I love my family.", "Tôi yêu gia đình tôi.", false, false));
-        }
-        return vocabEntities;
+        return db.vocabDao().getAllVocabs();
     }
 
     public List<VocabEntity> getWrongVocabs() {
@@ -341,18 +337,13 @@ public class TopicController {
         executor.execute(() -> {
             db.learningProgressDao().clearAllProgress();
             db.quizResultDao().clearAllResults();
-            List<VocabEntity> allVocabs = db.vocabDao().getAllVocabs();
-            for (VocabEntity v : allVocabs) {
-                db.vocabDao().updateLearnedStatus(v.getId(), false);
-                db.vocabDao().updateFavoriteStatus(v.getId(), false);
-            }
-            List<TopicEntity> topics = db.topicDao().getAllTopics();
-            for (TopicEntity t : topics) {
-                t.setLearnedCount(0);
-                db.topicDao().updateTopic(t);
-            }
+            db.quizDao().clearAllQuizzes();
+            db.vocabDao().resetAllVocabStates();
+            db.topicDao().resetAllTopicLearnedCounts();
+
             if (dailyProgressManager != null) {
                 dailyProgressManager.resetAllDailyProgress();
+                FirebaseSyncController.getInstance().pushDailySettings(dailyProgressManager);
             }
             if (onComplete != null) {
                 mainHandler.post(onComplete);

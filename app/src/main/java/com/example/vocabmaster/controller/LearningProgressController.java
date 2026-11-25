@@ -11,13 +11,14 @@ import com.example.vocabmaster.model.entity.VocabEntity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class LearningProgressController {
 
     private final AppDatabase db;
 
     public LearningProgressController(Context context) {
-        this.db = AppDatabase.getInstance(context);
+        this.db = context != null ? AppDatabase.getInstance(context) : null;
     }
 
     public void recordAnswer(int vocabId, int topicId, boolean isCorrect) {
@@ -91,7 +92,7 @@ public class LearningProgressController {
         int customCount = 0;
         for (VocabEntity v : allVocabs) {
             if (v.isLearned()) learnedCount++;
-            if (v.getId() > 120) customCount++;
+            if (v.isCustom()) customCount++;
         }
 
         List<VocabEntity> wrongVocabs = topicController.getWrongVocabs();
@@ -133,20 +134,89 @@ public class LearningProgressController {
     }
 
     public PronunciationResult evaluatePronunciation(String targetWord, String recognizedText) {
-        if (targetWord == null) targetWord = "";
-        if (recognizedText == null) recognizedText = "";
+        String target = targetWord != null ? targetWord.trim() : "";
+        String recognized = recognizedText != null ? recognizedText.trim() : "";
 
-        if (recognizedText.equalsIgnoreCase(targetWord)) {
-            return new PronunciationResult("Chính xác 100%!", "#16A34A", recognizedText, targetWord, true);
-        } else if (recognizedText.toLowerCase().contains(targetWord.toLowerCase()) || targetWord.toLowerCase().contains(recognizedText.toLowerCase())) {
-            return new PronunciationResult("Gần đúng! Phát âm chuẩn hơn nữa nhé.", "#D97706", recognizedText, targetWord, false);
-        } else {
-            return new PronunciationResult("Chưa chính xác! Thử lại xem sao nhé.", "#DC2626", recognizedText, targetWord, false);
+        if (target.isEmpty() || recognized.isEmpty()) {
+            return new PronunciationResult("Chưa chính xác! Thử lại xem sao nhé.", "#DC2626", recognized, target, false);
         }
+
+        if (recognized.equalsIgnoreCase(target)) {
+            return new PronunciationResult("Chính xác 100%!", "#16A34A", recognized, target, true);
+        }
+
+        String targetLower = target.toLowerCase(Locale.ROOT);
+        String recognizedLower = recognized.toLowerCase(Locale.ROOT);
+        if (recognized.length() >= 2
+                && (recognizedLower.contains(targetLower) || calculateSimilarity(targetLower, recognizedLower) >= 0.6)) {
+            return new PronunciationResult("Gần đúng! Phát âm chuẩn hơn nữa nhé.", "#D97706", recognized, target, false);
+        }
+
+        return new PronunciationResult("Chưa chính xác! Thử lại xem sao nhé.", "#DC2626", recognized, target, false);
+    }
+
+    static double calculateSimilarity(String a, String b) {
+        int maxLen = Math.max(a.length(), b.length());
+        if (maxLen == 0) return 1.0;
+        int distance = levenshteinDistance(a, b);
+        return (double) (maxLen - distance) / maxLen;
+    }
+
+    static int levenshteinDistance(String a, String b) {
+        int lenA = a.length();
+        int lenB = b.length();
+        int[] prev = new int[lenB + 1];
+        int[] curr = new int[lenB + 1];
+
+        for (int j = 0; j <= lenB; j++) {
+            prev[j] = j;
+        }
+        for (int i = 1; i <= lenA; i++) {
+            curr[0] = i;
+            char charA = a.charAt(i - 1);
+            for (int j = 1; j <= lenB; j++) {
+                int cost = (charA == b.charAt(j - 1)) ? 0 : 1;
+                curr[j] = Math.min(Math.min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+            }
+            int[] temp = prev;
+            prev = curr;
+            curr = temp;
+        }
+        return prev[lenB];
     }
 
     public void resetProgress(int vocabId) {
         db.learningProgressDao().deleteProgressByVocabId(vocabId);
         db.vocabDao().updateLearnedStatus(vocabId, false);
+    }
+
+    /**
+     * Pure SRS update logic extracted for unit-testability (no DB access).
+     * Intervals (correct answers): 1 -> 3 -> 7 -> 14 -> 30 days (capped at 30d).
+     * Wrong answer: demote to LEARNING, nextReview = now + 1 hour.
+     */
+    public static void applySrsResult(
+            com.example.vocabmaster.model.entity.LearningProgressEntity progress,
+            boolean isCorrect,
+            long now) {
+        if (isCorrect) {
+            int newCorrect = progress.getCorrectCount() + 1;
+            progress.setCorrectCount(newCorrect);
+            progress.setStatus(newCorrect >= 2 ? "MASTERED" : "LEARNING");
+            long interval = srsIntervalMs(newCorrect);
+            progress.setNextReview(now + interval);
+        } else {
+            progress.setWrongCount(progress.getWrongCount() + 1);
+            progress.setStatus("LEARNING");
+            progress.setNextReview(now + 3_600_000L);
+        }
+    }
+
+    /** Returns the SRS review interval in milliseconds for a given correct-answer count. */
+    private static long srsIntervalMs(int correctCount) {
+        // 1->1d, 2->3d, 3->7d, 4->14d, 5+->30d
+        int[] DAYS = {1, 3, 7, 14, 30};
+        int idx = Math.min(correctCount - 1, DAYS.length - 1);
+        return DAYS[idx] * 86_400_000L;
     }
 }

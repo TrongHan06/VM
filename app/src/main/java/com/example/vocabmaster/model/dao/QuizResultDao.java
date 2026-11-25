@@ -35,6 +35,9 @@ public interface QuizResultDao {
     @Query("SELECT * FROM quiz_results WHERE quiz_id = :quizId ORDER BY completed_at DESC")
     List<QuizResultEntity> getResultsByQuizId(int quizId);
 
+    @Query("SELECT COUNT(*) FROM quiz_results WHERE completed_at = :completedAt")
+    int countByCompletedAt(long completedAt);
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     long insertResult(QuizResultEntity result);
 

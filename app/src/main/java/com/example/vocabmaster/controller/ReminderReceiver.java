@@ -36,6 +36,12 @@ public class ReminderReceiver extends BroadcastReceiver {
             message = "Bạn mới học " + todayCount + "/" + dailyGoal + " từ hôm nay. Hãy dành vài phút học thêm từ vựng nhé!";
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
+        }
+
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager == null) return;
 
