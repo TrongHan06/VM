@@ -63,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
     private final ProgressAnimHelper dailyGoalAnimHelper = new ProgressAnimHelper();
     private final ProgressAnimHelper detailTopicAnimHelper = new ProgressAnimHelper();
     private LiveData<TopicProgress> currentTopicProgressLiveData;
+    private TopicEntity currentDetailTopic;
 
     private VocabAdapter wordListAdapter;
     private Runnable updateWordListRunnable;
@@ -246,21 +247,23 @@ public class MainActivity extends AppCompatActivity {
         int spanCount = dpWidth >= 900 ? 4 : (dpWidth >= 600 ? 3 : 2);
         rvTopics.setLayoutManager(new GridLayoutManager(this, spanCount));
 
+        TopicAdapter adapter = new TopicAdapter(new java.util.ArrayList<>(), this::showTopicDetailScreen);
+        rvTopics.setAdapter(adapter);
+
         topicController.getAllTopicsLiveData().observe(this, topicEntities -> {
             if (topicEntities != null && !topicEntities.isEmpty()) {
-                TopicAdapter adapter = new TopicAdapter(topicEntities, this::showTopicDetailScreen);
-                rvTopics.setAdapter(adapter);
-
-                topicController.getAllTopicProgressLiveData().observe(this, progressList -> {
-                    if (progressList != null) {
-                        java.util.Map<Integer, com.example.vocabmaster.model.entity.TopicProgressItem> progressMap = new java.util.HashMap<>();
-                        for (com.example.vocabmaster.model.entity.TopicProgressItem item : progressList) {
-                            progressMap.put(item.getTopicId(), item);
-                        }
-                        adapter.updateProgressMap(progressMap);
-                    }
-                });
+                adapter.submitList(new java.util.ArrayList<>(topicEntities));
                 updateDashboardStats();
+            }
+        });
+
+        topicController.getAllTopicProgressLiveData().observe(this, progressList -> {
+            if (progressList != null) {
+                java.util.Map<Integer, com.example.vocabmaster.model.entity.TopicProgressItem> progressMap = new java.util.HashMap<>();
+                for (com.example.vocabmaster.model.entity.TopicProgressItem item : progressList) {
+                    progressMap.put(item.getTopicId(), item);
+                }
+                adapter.updateProgressMap(progressMap);
             }
         });
     }
@@ -292,6 +295,7 @@ public class MainActivity extends AppCompatActivity {
                         dailyProgressManager.isReminderEnabled(),
                         (hour, minute, enabled) -> {
                             dailyProgressManager.setReminderTime(hour, minute, enabled);
+                            FirebaseSyncController.getInstance().pushDailySettings(dailyProgressManager);
                             if (enabled) {
                                 ReminderScheduler.scheduleDailyReminder(this, hour, minute);
                             } else {
@@ -310,6 +314,7 @@ public class MainActivity extends AppCompatActivity {
             btnEditDailyGoal.setOnClickListener(v -> AppInfoDialogView.showEditDailyGoalDialog(
                     this, dailyProgressManager.getDailyGoal(), newGoal -> {
                         dailyProgressManager.setDailyGoal(newGoal);
+                        FirebaseSyncController.getInstance().pushDailySettings(dailyProgressManager);
                         updateDashboardStats();
                     }
             ));
@@ -337,8 +342,9 @@ public class MainActivity extends AppCompatActivity {
             cardQuizHistory.setOnClickListener(v -> AppInfoDialogView.showQuizHistoryDialog(
                     this, topicController.getAllQuizResultsWithDetails(),
                     () -> {
-                        topicController.clearQuizHistory();
-                        updateDashboardStats();
+                        topicController.clearQuizHistory(dailyProgressManager, () -> {
+                            updateDashboardStats();
+                        });
                     }
             ));
         }
@@ -373,9 +379,19 @@ public class MainActivity extends AppCompatActivity {
             ));
         }
         if (cardOverallProgress != null) {
-            cardOverallProgress.setOnClickListener(v -> AppInfoDialogView.showOverallProgressDialog(
-                    this, topicController.getAllTopics(), topicId -> topicController.calculateTopicProgressPercent(topicId)
-            ));
+            cardOverallProgress.setOnClickListener(v -> {
+                List<com.example.vocabmaster.model.entity.TopicProgressItem> progressList = topicController.getAllTopicProgressList();
+                java.util.Map<Integer, com.example.vocabmaster.model.entity.TopicProgressItem> progressMap = new java.util.HashMap<>();
+                if (progressList != null) {
+                    for (com.example.vocabmaster.model.entity.TopicProgressItem item : progressList) {
+                        progressMap.put(item.getTopicId(), item);
+                    }
+                }
+                AppInfoDialogView.showOverallProgressDialog(
+                        this, topicController.getAllTopics(),
+                        topicId -> (progressMap.containsKey(topicId) ? progressMap.get(topicId).getProgressPercent() : 0)
+                );
+            });
         }
         if (cardSettings != null) {
             cardSettings.setOnClickListener(v -> AppInfoDialogView.showSettingsDialog(
@@ -496,7 +512,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Hiện chưa có từ vựng nào đến hạn ôn tập ngắt quãng (SRS)!", Toast.LENGTH_SHORT).show();
             return;
         }
-        showPracticeDialogWithController(new PracticeController(null, false, topicController, learningProgressController, dailyProgressManager, srsVocabs), "Ôn tập ngắt quãng (SRS)");
+        showPracticeDialogWithController(new PracticeController(null, false, topicController, learningProgressController, dailyProgressManager, srsVocabs, "Ôn tập ngắt quãng (SRS)"), "Ôn tập ngắt quãng (SRS)");
     }
 
     /**
@@ -508,7 +524,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Bạn chưa có từ vựng nào bị sai! Tuyệt vời!", Toast.LENGTH_SHORT).show();
             return;
         }
-        showPracticeDialogWithController(new PracticeController(null, false, topicController, learningProgressController, dailyProgressManager, wrongVocabs), "Ôn từ vựng hay sai");
+        showPracticeDialogWithController(new PracticeController(null, false, topicController, learningProgressController, dailyProgressManager, wrongVocabs, "Ôn từ vựng hay sai"), "Ôn từ vựng hay sai");
     }
 
     /**
@@ -518,18 +534,22 @@ public class MainActivity extends AppCompatActivity {
         VocabDialogView.showWordDetailDialog(this, vocab,
                 text -> speechController.speak(text),
                 (v, isFav) -> {
-                    topicController.toggleFavorite(v.getId(), isFav);
-                    updateDashboardStats();
-                    if (updateWordListRunnable != null) updateWordListRunnable.run();
+                    topicController.toggleFavorite(v.getId(), isFav, () -> {
+                        updateDashboardStats();
+                        if (updateWordListRunnable != null) updateWordListRunnable.run();
+                        refreshCurrentTopicDetailIfNeeded();
+                    });
                 },
                 v -> {
                     learningProgressController.resetProgress(v.getId());
                     updateDashboardStats();
                     if (updateWordListRunnable != null) updateWordListRunnable.run();
+                    refreshCurrentTopicDetailIfNeeded();
                 },
                 v -> topicController.deleteVocab(v, () -> {
                     updateDashboardStats();
                     if (updateWordListRunnable != null) updateWordListRunnable.run();
+                    refreshCurrentTopicDetailIfNeeded();
                 })
         );
     }
@@ -566,6 +586,7 @@ public class MainActivity extends AppCompatActivity {
      * Chuyển sang màn hình xem chi tiết chủ đề từ vựng.
      */
     private void showTopicDetailScreen(TopicEntity topic) {
+        this.currentDetailTopic = topic;
         View detailView = findViewById(R.id.nestedScrollViewTopicDetail);
         ProgressAnimHelper.switchTabWithAnimation(detailView, findViewById(R.id.nestedScrollViewHome), findViewById(R.id.nestedScrollViewTest), findViewById(R.id.nestedScrollViewWordList), findViewById(R.id.nestedScrollViewInfo));
 
@@ -596,8 +617,10 @@ public class MainActivity extends AppCompatActivity {
             if (rvDetailVocabs != null) {
                 rvDetailVocabs.setLayoutManager(new LinearLayoutManager(this));
                 VocabAdapter detailAdapter = new VocabAdapter(vocabs, v -> speechController.speak(v.getWord()), (v, isFav) -> {
-                    topicController.toggleFavorite(v.getId(), isFav);
-                    updateDashboardStats();
+                    topicController.toggleFavorite(v.getId(), isFav, () -> {
+                        updateDashboardStats();
+                        refreshCurrentTopicDetailIfNeeded();
+                    });
                 });
                 detailAdapter.setOnVocabClickListener(this::showWordDetailDialog);
                 rvDetailVocabs.setAdapter(detailAdapter);
@@ -610,11 +633,16 @@ public class MainActivity extends AppCompatActivity {
         if (btnBack != null) btnBack.setOnClickListener(v -> hideTopicDetailScreen());
     }
 
-    /**
-     * Quay trở lại màn hình Trang chủ từ màn hình Chi tiết chủ đề.
-     */
     private void hideTopicDetailScreen() {
+        this.currentDetailTopic = null;
         ProgressAnimHelper.switchTabWithAnimation(findViewById(R.id.nestedScrollViewHome), findViewById(R.id.nestedScrollViewTopicDetail));
+    }
+
+    private void refreshCurrentTopicDetailIfNeeded() {
+        View detailView = findViewById(R.id.nestedScrollViewTopicDetail);
+        if (currentDetailTopic != null && detailView != null && detailView.getVisibility() == View.VISIBLE) {
+            showTopicDetailScreen(currentDetailTopic);
+        }
     }
 
     /**

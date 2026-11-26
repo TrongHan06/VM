@@ -121,6 +121,7 @@ public class FlashcardDialogView {
             }
         };
 
+        final boolean[] isAnimating = {false};
         updateCardData.run();
 
         if (flashcard != null && cardFront != null && cardBack != null) {
@@ -129,16 +130,21 @@ public class FlashcardDialogView {
             cardBack.setCameraDistance(distance);
 
             flashcard.setOnClickListener(v -> {
+                if (isAnimating[0]) return;
+                isAnimating[0] = true;
                 flashcardController.markCurrentAsLearned();
-                ProgressAnimHelper.flipCard3D(cardFront, cardBack, isFlipped);
+                ProgressAnimHelper.flipCard3D(cardFront, cardBack, isFlipped, () -> isAnimating[0] = false);
             });
         }
 
         if (btnNextWord != null) {
             btnNextWord.setOnClickListener(v -> {
+                if (isAnimating[0]) return;
+                isAnimating[0] = true;
                 if (flashcardController.nextVocab()) {
-                    ProgressAnimHelper.slideCard(flashcard, updateCardData, true);
+                    ProgressAnimHelper.slideCard(flashcard, updateCardData, true, () -> isAnimating[0] = false);
                 } else {
+                    isAnimating[0] = false;
                     dialog.dismiss();
                 }
             });
@@ -146,8 +152,12 @@ public class FlashcardDialogView {
 
         if (btnPreviousWord != null) {
             btnPreviousWord.setOnClickListener(v -> {
+                if (isAnimating[0]) return;
+                isAnimating[0] = true;
                 if (flashcardController.previousVocab()) {
-                    ProgressAnimHelper.slideCard(flashcard, updateCardData, false);
+                    ProgressAnimHelper.slideCard(flashcard, updateCardData, false, () -> isAnimating[0] = false);
+                } else {
+                    isAnimating[0] = false;
                 }
             });
         }

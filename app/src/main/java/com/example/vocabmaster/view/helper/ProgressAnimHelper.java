@@ -105,9 +105,10 @@ public class ProgressAnimHelper {
     /**
      * Hiệu ứng trượt thẻ Flashcard ngang (Slide Left/Right) khi bấm từ tiếp theo hoặc lùi lại.
      */
-    public static void slideCard(View flashcard, Runnable updateDataRunnable, boolean isNext) {
+    public static void slideCard(View flashcard, Runnable updateDataRunnable, boolean isNext, Runnable onEnd) {
         if (flashcard == null) {
-            updateDataRunnable.run();
+            if (updateDataRunnable != null) updateDataRunnable.run();
+            if (onEnd != null) onEnd.run();
             return;
         }
         float screenWidth = flashcard.getWidth() > 0 ? flashcard.getWidth() : 600f;
@@ -119,22 +120,32 @@ public class ProgressAnimHelper {
                 .alpha(0f)
                 .setDuration(160)
                 .withEndAction(() -> {
-                    updateDataRunnable.run();
+                    if (updateDataRunnable != null) updateDataRunnable.run();
                     flashcard.setTranslationX(inX);
                     flashcard.animate()
                             .translationX(0f)
                             .alpha(1f)
                             .setDuration(160)
+                            .withEndAction(() -> {
+                                if (onEnd != null) onEnd.run();
+                            })
                             .start();
                 })
                 .start();
     }
 
+    public static void slideCard(View flashcard, Runnable updateDataRunnable, boolean isNext) {
+        slideCard(flashcard, updateDataRunnable, isNext, null);
+    }
+
     /**
      * Hiệu ứng lật thẻ 3D xoay trục Y (RotationY) 180 độ giữa mặt trước (cardFront) và mặt sau (cardBack).
      */
-    public static void flipCard3D(View cardFront, View cardBack, boolean[] isFlipped) {
-        if (cardFront == null || cardBack == null || isFlipped == null) return;
+    public static void flipCard3D(View cardFront, View cardBack, boolean[] isFlipped, Runnable onEnd) {
+        if (cardFront == null || cardBack == null || isFlipped == null) {
+            if (onEnd != null) onEnd.run();
+            return;
+        }
         DecelerateInterpolator interpolator = new DecelerateInterpolator();
         if (!isFlipped[0]) {
             cardFront.animate()
@@ -149,6 +160,9 @@ public class ProgressAnimHelper {
                                 .rotationY(0)
                                 .setDuration(280)
                                 .setInterpolator(interpolator)
+                                .withEndAction(() -> {
+                                    if (onEnd != null) onEnd.run();
+                                })
                                 .start();
                     })
                     .start();
@@ -166,11 +180,18 @@ public class ProgressAnimHelper {
                                 .rotationY(0)
                                 .setDuration(280)
                                 .setInterpolator(interpolator)
+                                .withEndAction(() -> {
+                                    if (onEnd != null) onEnd.run();
+                                })
                                 .start();
                     })
                     .start();
             isFlipped[0] = false;
         }
+    }
+
+    public static void flipCard3D(View cardFront, View cardBack, boolean[] isFlipped) {
+        flipCard3D(cardFront, cardBack, isFlipped, null);
     }
 
     /**

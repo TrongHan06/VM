@@ -257,17 +257,21 @@ public class VocabDialogView {
         }
 
         if (btnDeleteWord != null) {
-            btnDeleteWord.setOnClickListener(v -> {
-                new AlertDialog.Builder(context)
-                        .setTitle("Xóa từ vựng")
-                        .setMessage("Bạn có chắc chắn muốn xóa từ \"" + vocab.getWord() + "\" khỏi cơ sở dữ liệu?")
-                        .setPositiveButton("Xóa", (d, w) -> {
-                            if (deleteListener != null) deleteListener.onDeleteVocab(vocab);
-                            dialog.dismiss();
-                        })
-                        .setNegativeButton("Hủy", null)
-                        .show();
-            });
+            boolean isCustomWord = vocab.isCustom() || vocab.getId() > 120;
+            btnDeleteWord.setVisibility(isCustomWord ? View.VISIBLE : View.GONE);
+            if (isCustomWord) {
+                btnDeleteWord.setOnClickListener(v -> {
+                    new AlertDialog.Builder(context)
+                            .setTitle("Xóa từ vựng")
+                            .setMessage("Bạn có chắc chắn muốn xóa từ \"" + vocab.getWord() + "\" khỏi cơ sở dữ liệu?")
+                            .setPositiveButton("Xóa", (d, w) -> {
+                                if (deleteListener != null) deleteListener.onDeleteVocab(vocab);
+                                dialog.dismiss();
+                            })
+                            .setNegativeButton("Hủy", null)
+                            .show();
+                });
+            }
         }
 
         dialog.show();

@@ -49,7 +49,15 @@ public class FirebaseSyncController {
     private final FirebaseFirestore firestore;
     private GoogleSignInClient googleSignInClient;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private static Handler createMainHandler() {
+        try {
+            return new Handler(Looper.getMainLooper());
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private final Handler mainHandler = createMainHandler();
     private final AtomicBoolean isSyncing = new AtomicBoolean(false);
 
     public interface AuthCallback {
@@ -70,19 +78,27 @@ public class FirebaseSyncController {
     }
 
     private FirebaseSyncController() {
-        auth = FirebaseAuth.getInstance();
-        firestore = FirebaseFirestore.getInstance();
+        FirebaseAuth a = null;
+        FirebaseFirestore f = null;
+        try {
+            a = FirebaseAuth.getInstance();
+            f = FirebaseFirestore.getInstance();
+        } catch (Throwable ignored) {
+        }
+        auth = a;
+        firestore = f;
     }
 
     public boolean isLoggedIn() {
-        return auth.getCurrentUser() != null;
+        return auth != null && auth.getCurrentUser() != null;
     }
 
     public FirebaseUser getCurrentUser() {
-        return auth.getCurrentUser();
+        return auth != null ? auth.getCurrentUser() : null;
     }
 
     public String getCurrentUid() {
+        if (auth == null) return null;
         FirebaseUser user = auth.getCurrentUser();
         return user != null ? user.getUid() : null;
     }
@@ -192,6 +208,7 @@ public class FirebaseSyncController {
      * PUSH: Đẩy trạng thái học (isLearned, isFavorite, tiến độ SRS) của từ vựng lên Firestore.
      */
     public void pushVocabState(VocabEntity vocab, LearningProgressEntity progress) {
+        if (firestore == null) return;
         String uid = getCurrentUid();
         if (uid == null || vocab == null) return;
 
@@ -207,7 +224,7 @@ public class FirebaseSyncController {
         data.put("updatedAt", System.currentTimeMillis());
 
         String stateDocId = String.valueOf(vocab.getId());
-        if (vocab.getId() > BUILTIN_VOCAB_MAX_ID) {
+        if (vocab.isCustom() || vocab.getId() > BUILTIN_VOCAB_MAX_ID) {
             String docKey = buildCustomVocabDocKey(vocab.getTopicId(), vocab.getWord());
             if (docKey != null) {
                 stateDocId = docKey;
@@ -225,6 +242,7 @@ public class FirebaseSyncController {
      * PUSH: Đẩy từ vựng tự thêm thủ công (id > 120) lên Firestore với docKey ổn định theo nội dung.
      */
     public void pushCustomVocab(VocabEntity vocab) {
+        if (firestore == null) return;
         String uid = getCurrentUid();
         if (uid == null || vocab == null || (!vocab.isCustom() && vocab.getId() <= BUILTIN_VOCAB_MAX_ID)) return;
 
@@ -253,6 +271,7 @@ public class FirebaseSyncController {
      * DELETE: Xóa từ vựng tự thêm thủ công khỏi Firestore theo docKey ổn định.
      */
     public void deleteCustomVocabOnCloud(VocabEntity vocab) {
+        if (firestore == null) return;
         String uid = getCurrentUid();
         if (uid == null || vocab == null || (!vocab.isCustom() && vocab.getId() <= BUILTIN_VOCAB_MAX_ID)) return;
 
@@ -271,6 +290,7 @@ public class FirebaseSyncController {
      */
     @Deprecated
     public void deleteCustomVocabOnCloud(int vocabId) {
+        if (firestore == null) return;
         String uid = getCurrentUid();
         if (uid == null || vocabId <= BUILTIN_VOCAB_MAX_ID) return;
 
@@ -283,6 +303,7 @@ public class FirebaseSyncController {
      * PUSH: Đẩy kết quả làm bài kiểm tra Quiz lên Firestore.
      */
     public void pushQuizResult(String quizName, Integer topicId, int totalQuestions, int score, int correctAnswers, long completedAt) {
+        if (firestore == null) return;
         String uid = getCurrentUid();
         if (uid == null) return;
 
@@ -303,6 +324,7 @@ public class FirebaseSyncController {
      * PUSH: Đẩy cài đặt học tập hằng ngày lên Firestore kèm {@code todayDate} và {@code updatedAt}.
      */
     public void pushDailySettings(DailyProgressManager manager) {
+        if (firestore == null) return;
         String uid = getCurrentUid();
         if (uid == null || manager == null) return;
 
@@ -421,11 +443,15 @@ public class FirebaseSyncController {
                 existing.setExampleMeaning(exampleMeaning);
                 existing.setLearned(isLearned);
                 existing.setFavorite(isFavorite);
+                if (existing.getId() > BUILTIN_VOCAB_MAX_ID || existing.isCustom()) {
+                    existing.setCustom(true);
+                }
                 db.vocabDao().updateVocab(existing);
             } else {
                 VocabEntity customVocab = new VocabEntity(
                         tId, word, phonetic, meaning, example, exampleMeaning, isLearned, isFavorite);
                 customVocab.setId(0);
+                customVocab.setCustom(true);
                 db.vocabDao().insertVocab(customVocab);
             }
             db.topicDao().updateTopicTotalCount(tId);
@@ -462,14 +488,23 @@ public class FirebaseSyncController {
             int wrongCount = wrongL != null ? wrongL.intValue() : 0;
             long nextReview = nextReviewL != null ? nextReviewL : 0L;
 
-            db.vocabDao().updateLearnedStatus(targetVocabId, isLearned);
+            VocabEntity localVocab = db.vocabDao().getVocabById(targetVocabId);
+            boolean mergedLearned = (localVocab != null && localVocab.isLearned()) || isLearned;
+
+            db.vocabDao().updateLearnedStatus(targetVocabId, mergedLearned);
             db.vocabDao().updateFavoriteStatus(targetVocabId, isFavorite);
             db.topicDao().updateTopicLearnedCount(tId);
 
             if (status != null) {
-                LearningProgressEntity progress = new LearningProgressEntity(
-                        targetVocabId, status, correctCount, wrongCount, nextReview);
-                db.learningProgressDao().insertProgress(progress);
+                LearningProgressEntity localProgress = db.learningProgressDao().getProgressByVocabId(targetVocabId);
+                int cloudAttempts = correctCount + wrongCount;
+                int localAttempts = localProgress != null ? (localProgress.getCorrectCount() + localProgress.getWrongCount()) : 0;
+
+                if (localProgress == null || cloudAttempts >= localAttempts) {
+                    LearningProgressEntity progress = new LearningProgressEntity(
+                            targetVocabId, status, correctCount, wrongCount, nextReview);
+                    db.learningProgressDao().insertProgress(progress);
+                }
             }
         }
     }
@@ -638,10 +673,10 @@ public class FirebaseSyncController {
 
     private void notifySyncSuccess(SyncCallback callback) {
         if (callback == null) return;
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            callback.onSuccess();
-        } else {
+        if (mainHandler != null) {
             mainHandler.post(callback::onSuccess);
+        } else {
+            callback.onSuccess();
         }
     }
 
@@ -650,10 +685,10 @@ public class FirebaseSyncController {
         String safeMessage = (message != null && !message.trim().isEmpty())
                 ? message
                 : "Đã xảy ra lỗi khi đồng bộ dữ liệu.";
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            callback.onError(safeMessage);
-        } else {
+        if (mainHandler != null) {
             mainHandler.post(() -> callback.onError(safeMessage));
+        } else {
+            callback.onError(safeMessage);
         }
     }
 }

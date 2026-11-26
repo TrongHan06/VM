@@ -8,6 +8,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.vocabmaster.R;
@@ -16,26 +18,50 @@ import com.example.vocabmaster.model.entity.TopicProgressItem;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
-public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHolder> {
+public class TopicAdapter extends ListAdapter<TopicEntity, TopicAdapter.TopicViewHolder> {
 
     public interface OnTopicClickListener {
         void onTopicClick(TopicEntity topic);
     }
 
-    private List<TopicEntity> topicList;
+    private static final DiffUtil.ItemCallback<TopicEntity> DIFF_CALLBACK = new DiffUtil.ItemCallback<TopicEntity>() {
+        @Override
+        public boolean areItemsTheSame(@NonNull TopicEntity oldItem, @NonNull TopicEntity newItem) {
+            return oldItem.getId() == newItem.getId();
+        }
+
+        @Override
+        public boolean areContentsTheSame(@NonNull TopicEntity oldItem, @NonNull TopicEntity newItem) {
+            return oldItem.getId() == newItem.getId()
+                    && Objects.equals(oldItem.getTitle(), newItem.getTitle())
+                    && Objects.equals(oldItem.getSubTitle(), newItem.getSubTitle())
+                    && oldItem.getLearnedCount() == newItem.getLearnedCount()
+                    && oldItem.getTotalCount() == newItem.getTotalCount()
+                    && oldItem.getIconResId() == newItem.getIconResId();
+        }
+    };
+
     private Map<Integer, TopicProgressItem> progressMap;
     private OnTopicClickListener listener;
 
+    public TopicAdapter() {
+        super(DIFF_CALLBACK);
+    }
+
     public TopicAdapter(List<TopicEntity> topicList) {
-        this.topicList = topicList;
+        super(DIFF_CALLBACK);
+        submitList(topicList != null ? new ArrayList<>(topicList) : null);
     }
 
     public TopicAdapter(List<TopicEntity> topicList, OnTopicClickListener listener) {
-        this.topicList = topicList;
+        super(DIFF_CALLBACK);
         this.listener = listener;
+        submitList(topicList != null ? new ArrayList<>(topicList) : null);
     }
 
     public void setOnTopicClickListener(OnTopicClickListener listener) {
@@ -56,7 +82,7 @@ public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHol
 
     @Override
     public void onBindViewHolder(@NonNull TopicViewHolder holder, int position) {
-        TopicEntity topic = topicList.get(position);
+        TopicEntity topic = getItem(position);
 
         holder.tvTitle.setText(topic.getTitle());
         holder.tvSubTitle.setText(topic.getSubTitle());
@@ -71,11 +97,12 @@ public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHol
             if (item != null) {
                 percent = item.getProgressPercent();
                 if (item.getTotalWords() > 0) total = item.getTotalWords();
+                learned = item.getFlashcardCount();
             }
         }
 
-        holder.progressBar.setMax(total);
-        holder.progressBar.setProgress(learned);
+        holder.progressBar.setMax(100);
+        holder.progressBar.setProgress(percent);
         if (holder.tvProgressText != null) {
             holder.tvProgressText.setText(learned + "/" + total + " từ");
         }
@@ -133,11 +160,6 @@ public class TopicAdapter extends RecyclerView.Adapter<TopicAdapter.TopicViewHol
         if (holder.tvTopicPercentBadge != null) {
             holder.tvTopicPercentBadge.setTextColor(Color.parseColor(accentHex));
         }
-    }
-
-    @Override
-    public int getItemCount() {
-        return topicList != null ? topicList.size() : 0;
     }
 
     public static class TopicViewHolder extends RecyclerView.ViewHolder {
