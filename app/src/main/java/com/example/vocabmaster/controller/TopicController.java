@@ -98,8 +98,22 @@ public class TopicController {
         return db.quizResultDao().getAllResults();
     }
 
+    public void clearQuizHistory(DailyProgressManager dailyProgressManager, Runnable onComplete) {
+        executor.execute(() -> {
+            db.quizResultDao().clearAllResults();
+            db.quizDao().clearAllQuizzes();
+            if (dailyProgressManager != null) {
+                dailyProgressManager.setTotalQuizCompleted(0);
+                FirebaseSyncController.getInstance().pushDailySettings(dailyProgressManager);
+            }
+            if (onComplete != null) {
+                mainHandler.post(onComplete);
+            }
+        });
+    }
+
     public void clearQuizHistory() {
-        executor.execute(() -> db.quizResultDao().clearAllResults());
+        clearQuizHistory(null, null);
     }
 
     private void setupDatabaseIfNeeded() {

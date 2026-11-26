@@ -79,4 +79,17 @@ public class PracticeControllerTest {
 
         assertEquals(1, dailyProgressManager.getTotalQuizCompleted());
     }
+
+    @Test
+    public void sessionTitle_isPreservedAndPassedCorrectly() {
+        VocabEntity v1 = new VocabEntity(1, "Book", "/bʊk/", "Quyển sách", null, null, false, false);
+        PracticeController srsController = new PracticeController(
+                null, false, null, null, dailyProgressManager,
+                Collections.singletonList(v1), "Ôn tập ngắt quãng (SRS)"
+        );
+        assertEquals("Ôn tập ngắt quãng (SRS)", srsController.getSessionTitle());
+
+        PracticeController retryController = srsController.createRetryController();
+        assertEquals("Ôn tập ngắt quãng (SRS)", retryController.getSessionTitle());
+    }
 }

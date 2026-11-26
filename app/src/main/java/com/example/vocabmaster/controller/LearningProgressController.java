@@ -22,52 +22,26 @@ public class LearningProgressController {
     }
 
     public void recordAnswer(int vocabId, int topicId, boolean isCorrect) {
+        if (db == null) return;
         long now = System.currentTimeMillis();
         LearningProgressEntity progress = db.learningProgressDao().getProgressByVocabId(vocabId);
 
         if (progress == null) {
-            int correct = isCorrect ? 1 : 0;
-            int wrong = isCorrect ? 0 : 1;
-            String status = isCorrect ? "MASTERED" : "LEARNING";
-            long nextReview = now + (isCorrect ? 86400000L : 3600000L);
-            progress = new LearningProgressEntity(vocabId, status, correct, wrong, nextReview);
-        } else {
-            if (isCorrect) {
-                progress.setCorrectCount(progress.getCorrectCount() + 1);
-                progress.setStatus("MASTERED");
-                progress.setNextReview(now + (86400000L * progress.getCorrectCount()));
-            } else {
-                progress.setWrongCount(progress.getWrongCount() + 1);
-                progress.setStatus("LEARNING");
-                progress.setNextReview(now + 3600000L);
-            }
+            progress = new LearningProgressEntity(vocabId, "LEARNING", 0, 0, now);
         }
+        applySrsResult(progress, isCorrect, now);
         db.learningProgressDao().insertProgress(progress);
 
-        List<VocabEntity> allVocabs = db.vocabDao().getAllVocabs();
-        for (VocabEntity v : allVocabs) {
-            if (v.getId() == vocabId) {
-                FirebaseSyncController.getInstance().pushVocabState(v, progress);
-                break;
-            }
+        VocabEntity v = db.vocabDao().getVocabById(vocabId);
+        if (v != null) {
+            FirebaseSyncController.getInstance().pushVocabState(v, progress);
         }
     }
 
     public List<VocabEntity> getDueReviewVocabs() {
+        if (db == null) return new ArrayList<>();
         long now = System.currentTimeMillis();
-        List<LearningProgressEntity> dueList = db.learningProgressDao().getDueReviews(now);
-        List<VocabEntity> vocabs = new ArrayList<>();
-
-        List<VocabEntity> allVocabs = db.vocabDao().getAllVocabs();
-        for (LearningProgressEntity progress : dueList) {
-            for (VocabEntity vocab : allVocabs) {
-                if (vocab.getId() == progress.getVocabularyId()) {
-                    vocabs.add(vocab);
-                    break;
-                }
-            }
-        }
-        return vocabs;
+        return db.vocabDao().getDueReviewVocabs(now);
     }
 
     public int getCountByStatus(String status) {
@@ -185,9 +159,24 @@ public class LearningProgressController {
         return prev[lenB];
     }
 
-    public void resetProgress(int vocabId) {
+    public void resetProgress(int vocabId, int topicId) {
+        if (db == null) return;
         db.learningProgressDao().deleteProgressByVocabId(vocabId);
         db.vocabDao().updateLearnedStatus(vocabId, false);
+        if (topicId > 0) {
+            db.topicDao().updateTopicLearnedCount(topicId);
+        }
+        VocabEntity v = db.vocabDao().getVocabById(vocabId);
+        if (v != null) {
+            FirebaseSyncController.getInstance().pushVocabState(v, null);
+        }
+    }
+
+    public void resetProgress(int vocabId) {
+        if (db == null) return;
+        VocabEntity v = db.vocabDao().getVocabById(vocabId);
+        int topicId = v != null ? v.getTopicId() : 0;
+        resetProgress(vocabId, topicId);
     }
 
     /**

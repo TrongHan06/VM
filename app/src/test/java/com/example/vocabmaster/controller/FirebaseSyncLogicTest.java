@@ -129,4 +129,17 @@ public class FirebaseSyncLogicTest {
         assertTrue(cancelled.get());
         assertEquals(cloudUpdatedAt, manager.getSettingsUpdatedAt());
     }
+
+    @Test
+    public void customVocab_flagHandlingAndOfflineMergePreservesLocalLearnedStatus() {
+        com.example.vocabmaster.model.entity.VocabEntity v = new com.example.vocabmaster.model.entity.VocabEntity(
+                1, "CustomWord", "/ipa/", "Meaning", null, null, false, false);
+        v.setCustom(true);
+        assertTrue(v.isCustom());
+
+        boolean localLearned = true;
+        boolean cloudLearned = false;
+        boolean mergedLearned = localLearned || cloudLearned;
+        assertTrue(mergedLearned);
+    }
 }

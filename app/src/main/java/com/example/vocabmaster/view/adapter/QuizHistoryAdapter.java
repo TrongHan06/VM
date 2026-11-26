@@ -6,23 +6,49 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.vocabmaster.R;
 import com.example.vocabmaster.model.entity.QuizResultWithQuiz;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
-public class QuizHistoryAdapter extends RecyclerView.Adapter<QuizHistoryAdapter.ViewHolder> {
+public class QuizHistoryAdapter extends ListAdapter<QuizResultWithQuiz, QuizHistoryAdapter.ViewHolder> {
 
-    private final List<QuizResultWithQuiz> results;
+    private static final DiffUtil.ItemCallback<QuizResultWithQuiz> DIFF_CALLBACK = new DiffUtil.ItemCallback<QuizResultWithQuiz>() {
+        @Override
+        public boolean areItemsTheSame(@NonNull QuizResultWithQuiz oldItem, @NonNull QuizResultWithQuiz newItem) {
+            return oldItem.getResultId() == newItem.getResultId();
+        }
+
+        @Override
+        public boolean areContentsTheSame(@NonNull QuizResultWithQuiz oldItem, @NonNull QuizResultWithQuiz newItem) {
+            return oldItem.getResultId() == newItem.getResultId()
+                    && oldItem.getQuizId() == newItem.getQuizId()
+                    && Objects.equals(oldItem.getQuizName(), newItem.getQuizName())
+                    && oldItem.getTotalQuestions() == newItem.getTotalQuestions()
+                    && oldItem.getScore() == newItem.getScore()
+                    && oldItem.getCorrectAnswers() == newItem.getCorrectAnswers()
+                    && oldItem.getCompletedAt() == newItem.getCompletedAt();
+        }
+    };
+
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
 
     public QuizHistoryAdapter(List<QuizResultWithQuiz> results) {
-        this.results = results;
+        super(DIFF_CALLBACK);
+        submitList(results != null ? new ArrayList<>(results) : null);
+    }
+
+    public void updateData(List<QuizResultWithQuiz> newList) {
+        submitList(newList != null ? new ArrayList<>(newList) : null);
     }
 
     @NonNull
@@ -34,7 +60,7 @@ public class QuizHistoryAdapter extends RecyclerView.Adapter<QuizHistoryAdapter.
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        QuizResultWithQuiz result = results.get(position);
+        QuizResultWithQuiz result = getItem(position);
         String title = (result.getQuizName() != null && !result.getQuizName().isEmpty()) ? result.getQuizName() : ("Bài kiểm tra #" + result.getResultId());
         holder.tvQuizName.setText(title);
         holder.tvDate.setText(dateFormat.format(new Date(result.getCompletedAt())));
@@ -48,11 +74,6 @@ public class QuizHistoryAdapter extends RecyclerView.Adapter<QuizHistoryAdapter.
         } else {
             holder.tvScore.setTextColor(android.graphics.Color.parseColor("#DC2626"));
         }
-    }
-
-    @Override
-    public int getItemCount() {
-        return results != null ? results.size() : 0;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {

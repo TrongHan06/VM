@@ -22,6 +22,7 @@ public class PracticeController {
     private final List<VocabEntity> customVocabs;
     private final List<VocabEntity> sessionVocabs;
     private final List<VocabEntity> allVocabs;
+    private final String sessionTitle;
     private int questionIndex = 0;
     private int correctAnswersCount = 0;
     private boolean sessionFinished = false;
@@ -30,19 +31,27 @@ public class PracticeController {
      * Khởi tạo PracticeController theo chủ đề hoặc bài kiểm tra tổng hợp.
      */
     public PracticeController(TopicEntity topic, boolean isExam, TopicController topicController, LearningProgressController learningProgressController, DailyProgressManager dailyProgressManager) {
-        this(topic, isExam, topicController, learningProgressController, dailyProgressManager, null);
+        this(topic, isExam, topicController, learningProgressController, dailyProgressManager, null, null);
     }
 
     /**
      * Khởi tạo PracticeController với danh sách từ vựng tùy chỉnh (ví dụ: từ vựng SRS, từ vựng hay sai).
      */
     public PracticeController(TopicEntity topic, boolean isExam, TopicController topicController, LearningProgressController learningProgressController, DailyProgressManager dailyProgressManager, List<VocabEntity> customVocabs) {
+        this(topic, isExam, topicController, learningProgressController, dailyProgressManager, customVocabs, null);
+    }
+
+    /**
+     * Khởi tạo PracticeController với danh sách từ vựng tùy chỉnh và tiêu đề phiên thi tùy chọn.
+     */
+    public PracticeController(TopicEntity topic, boolean isExam, TopicController topicController, LearningProgressController learningProgressController, DailyProgressManager dailyProgressManager, List<VocabEntity> customVocabs, String sessionTitle) {
         this.topic = topic;
         this.isExam = isExam;
         this.topicController = topicController;
         this.learningProgressController = learningProgressController;
         this.dailyProgressManager = dailyProgressManager;
         this.customVocabs = customVocabs;
+        this.sessionTitle = sessionTitle;
         this.allVocabs = topicController != null
                 ? topicController.getAllVocabs()
                 : (customVocabs != null ? new ArrayList<>(customVocabs) : new ArrayList<>());
@@ -82,7 +91,7 @@ public class PracticeController {
      * Tạo một PracticeController mới cho việc làm lại (Retry) với giữ nguyên danh sách từ vựng ban đầu.
      */
     public PracticeController createRetryController() {
-        return new PracticeController(topic, isExam, topicController, learningProgressController, dailyProgressManager, customVocabs != null ? customVocabs : sessionVocabs);
+        return new PracticeController(topic, isExam, topicController, learningProgressController, dailyProgressManager, customVocabs != null ? customVocabs : sessionVocabs, sessionTitle);
     }
 
     /**
@@ -183,12 +192,19 @@ public class PracticeController {
         if (topicController != null && getTotalQuestions() > 0) {
             int score = (correctAnswersCount * 100) / getTotalQuestions();
             Integer topicId = (topic != null && topic.getId() > 0) ? topic.getId() : null;
-            String name = isExam ? "Kiểm tra tổng hợp" : ("Ôn tập " + (topic != null ? topic.getTitle() : "tổng hợp"));
+            String name = (sessionTitle != null && !sessionTitle.trim().isEmpty())
+                    ? sessionTitle.trim()
+                    : (isExam ? "Kiểm tra tổng hợp" : ("Ôn tập " + (topic != null ? topic.getTitle() : "tổng hợp")));
             topicController.saveQuizResult(name, topicId, getTotalQuestions(), score, correctAnswersCount);
         }
         if (dailyProgressManager != null) {
             dailyProgressManager.incrementQuizCompleted();
+            FirebaseSyncController.getInstance().pushDailySettings(dailyProgressManager);
         }
+    }
+
+    public String getSessionTitle() {
+        return sessionTitle;
     }
 
     /**
